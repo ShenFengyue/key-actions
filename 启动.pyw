@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Life Manager 启动器（日常双击这个文件）。
+"""Key Actions 启动器（日常双击这个文件）。
 
 独立桌面窗口，不弹出 CMD / PowerShell 窗口，不打开浏览器，不启动本地 Web 服务器。
 首次运行时会用项目内的 .venv 准备运行环境（一次性），之后每次启动都直接进入应用。
@@ -135,7 +135,7 @@ def run_wizard() -> int:
         from tkinter import scrolledtext, ttk
     except ImportError:
         show_message_box(
-            "Life Manager",
+            "Key Actions",
             "首次运行需要准备环境，但当前 Python 没有 tkinter。\n\n" + manual_instructions(),
             error=True,
         )
@@ -143,7 +143,7 @@ def run_wizard() -> int:
 
     base_python = find_base_python()
     root = tk.Tk()
-    root.title("Life Manager · 首次环境准备")
+    root.title("Key Actions · 首次环境准备")
     root.geometry("720x520")
     root.minsize(640, 460)
 

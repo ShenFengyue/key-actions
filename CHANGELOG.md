@@ -8,6 +8,27 @@
 
 ---
 
+## 1.42.0
+
+数据结构：**v5**（不变）
+
+### 改名：Life Manager → Key Actions
+
+- 项目文件夹 `Life-Manager` → `key-actions`；窗口标题、侧边栏、应用名、启动器文案、
+  README、依赖说明注释里的旧名全部改掉；
+- 运行日志 `data/logs/life_manager.log` → `key_actions.log`（旧日志留在原处，不删）；
+- 数据库 `data/process_manager.sqlite3` → `key_actions.sqlite3`
+  （只改文件名，数据一行未动；改名后 `pragma integrity_check` 为 ok，
+  节点 35 / 活动 167 / AI 消息 6 与改名前一致）；
+- 导出文件名前缀 `life-manager-*` → `key-actions-*`，导出 JSON 里的 `application`
+  字段改为 `Key Actions`；
+- **导出格式标识 `JSON_FORMAT` 保持 `"life-manager-json"`**：它是历史导出件的身份标识，
+  改了会让 `data/exports/` 里的旧导出导不回来（代码里有注释说明）；
+- 测试专用环境变量 `LIFE_MANAGER_TEST_TMP` → `KEY_ACTIONS_TEST_TMP`；
+- 隐私测试（AI 请求负载不得含数据库文件名）改成直接读 `paths.DATABASE_PATH.name`，
+  不再写死字符串，以后再改名也不会失效；
+- GitHub 仓库 `ShenFengyue/life-manager` → `key-actions`（旧地址由 GitHub 自动重定向）。
+
 ## 1.41.0
 
 数据结构：**v5**（不变）

@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         self._rendered: dict[str, int] = {}
         self._rendered_date = today_str()
         self._geometry_clamped = False
-        self.setWindowTitle("Life Manager")
+        self.setWindowTitle("Key Actions")
         self.setWindowIcon(theme.app_icon())
         self.resize(
             int(config.get("window_width")), int(config.get("window_height"))

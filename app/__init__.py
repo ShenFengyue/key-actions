@@ -1,4 +1,4 @@
-"""Life Manager —— 单人本地使用的 Windows 桌面应用。
+"""Key Actions —— 单人本地使用的 Windows 桌面应用。
 
 模块职责：
     paths       项目内路径解析（所有数据必须落在项目文件夹内）
@@ -11,7 +11,7 @@
     pages/*     五个页面：总览 / 进程树 / 热力图 / 活动记录 / 数据
 """
 
-__version__ = "1.41.0"
+__version__ = "1.42.0"
 
 # 版本说明见项目根目录的 CHANGELOG.md。
 # 应用版本（__version__）与数据结构版本（app.storage.SCHEMA_VERSION）相互独立：

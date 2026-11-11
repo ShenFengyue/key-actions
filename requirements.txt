@@ -1,3 +1,3 @@
-# Life Manager 运行依赖
+# Key Actions 运行依赖
 # PySide6-Essentials 已包含 QtCore / QtGui / QtWidgets，足够支撑本应用的独立桌面窗口。
 PySide6-Essentials>=6.8

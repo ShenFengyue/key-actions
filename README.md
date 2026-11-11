@@ -1,7 +1,7 @@
-# Life Manager v1.41.0
+# Key Actions v1.42.0
 
 > 版本与变更记录见 [CHANGELOG.md](CHANGELOG.md)。应用版本与数据结构版本是两件事：
-> 当前应用版本 **1.41.0**，数据结构版本 **v5**（旧库启动时自动升级，升级前自动备份）。
+> 当前应用版本 **1.42.0**，数据结构版本 **v5**（旧库启动时自动升级，升级前自动备份）。
 
 > 这个项目是怎么在一个晚上被"聊"出来的（含时间线、真实日志与成本账）：
 > [vibe coding全过程记录.md](vibe%20coding全过程记录.md)。
@@ -188,7 +188,7 @@ py -3.13 -m venv .venv
 不需要的话，在进程树里选中线程 → 「关联…」取消勾选即可，解除动作同样会记入历史。
 
 > **这套占位名只影响"全新空库的第一次初始化"**：已经在用的数据库
-> （`data/process_manager.sqlite3`）**不会被改动**，你自己的领域、进程、线程名字照旧。
+> （`data/key_actions.sqlite3`）**不会被改动**，你自己的领域、进程、线程名字照旧。
 > 换新电脑时把 `data/` 一起带走就能继续用原来的名字；不带 `data/` 会得到这套占位模板，
 > 改名、或导入旧机器导出的 JSON 都可以。
 
@@ -197,7 +197,7 @@ py -3.13 -m venv .venv
 ## 六、目录结构
 
 ```
-Life-Manager/
+key-actions/
 ├── 启动.pyw                  ← 日常双击入口（环境检测 + 无控制台启动）
 ├── requirements.txt
 ├── README.md
@@ -218,7 +218,7 @@ Life-Manager/
 │   ├── pages/                ← 总览 / 进程树 / 热力图 / 活动记录 / 数据
 │   └── widgets/              ← 通用组件、侧边栏、GitHub 风格热力图控件
 ├── data/                     ← 全部应用数据（首次运行自动创建）
-│   ├── process_manager.sqlite3   ← 唯一正式数据源
+│   ├── key_actions.sqlite3       ← 唯一正式数据源
 │   ├── diary.md                  ← 全部日记（Markdown，一个文件装下所有天）
 │   ├── backups/                  ← 备份（含恢复/导入前的自动备份）
 │   ├── exports/                  ← JSON 导出

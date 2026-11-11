@@ -34,6 +34,8 @@ from .storage import Database, new_id
 
 logger = logging.getLogger(__name__)
 
+# 导出格式标识：历史导出件里写的都是 life-manager-json，改名后保持原值，
+# 否则旧导出会被判成「不是本应用导出的文件」。
 JSON_FORMAT = "life-manager-json"
 JSON_FORMAT_VERSION = 1
 FOCUS_LIMIT = 3
@@ -1175,10 +1177,10 @@ class LifeManagerService:
         paths.ensure_directories()
         if destination is None:
             stamp = now_stamp().replace(":", "").replace(" ", "-")
-            destination = paths.EXPORT_DIR / f"life-manager-{stamp}.json"
+            destination = paths.EXPORT_DIR / f"key-actions-{stamp}.json"
         destination = Path(destination)
         payload = {
-            "application": "Life Manager",
+            "application": "Key Actions",
             "format": JSON_FORMAT,
             "format_version": JSON_FORMAT_VERSION,
             "schema_version": _current_schema_version(),
@@ -1216,7 +1218,7 @@ class LifeManagerService:
         if not isinstance(payload, dict):
             raise ImportValidationError("根节点必须是一个 JSON 对象。")
         if payload.get("format") != JSON_FORMAT:
-            raise ImportValidationError("不是 Life Manager 导出的 JSON 文件（format 字段不匹配）。")
+            raise ImportValidationError("不是 Key Actions 导出的 JSON 文件（format 字段不匹配）。")
         for key in ("nodes", "activities", "events", "associations"):
             if not isinstance(payload.get(key), list):
                 raise ImportValidationError(f"缺少列表字段：{key}")

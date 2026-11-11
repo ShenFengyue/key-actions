@@ -105,11 +105,11 @@ def main() -> int:
     _set_windows_app_id()
     diary_file = diary.ensure_file()
     logger.info("日记文件：%s", diary_file)
-    logger.info("Life Manager 启动，项目根目录：%s", paths.ROOT)
+    logger.info("Key Actions 启动，项目根目录：%s", paths.ROOT)
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Life Manager")
-    app.setApplicationDisplayName("Life Manager")
+    app.setApplicationName("Key Actions")
+    app.setApplicationDisplayName("Key Actions")
     app.setWindowIcon(theme.app_icon())
     app.setStyle("Fusion")
     app.setFont(theme.app_font())
@@ -155,7 +155,7 @@ def main() -> int:
             break
         logger.info("按新主题重建界面")
     db.close()
-    logger.info("Life Manager 退出")
+    logger.info("Key Actions 退出")
     return code
 
 

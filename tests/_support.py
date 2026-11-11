@@ -15,7 +15,7 @@ from app import paths
 
 
 def make_temp_dir() -> Path:
-    base = Path(os.environ.get("LIFE_MANAGER_TEST_TMP") or (paths.ROOT / ".test_tmp"))
+    base = Path(os.environ.get("KEY_ACTIONS_TEST_TMP") or (paths.ROOT / ".test_tmp"))
     base.mkdir(parents=True, exist_ok=True)
     target = base / f"case-{uuid.uuid4().hex[:10]}"
     target.mkdir(parents=True, exist_ok=True)

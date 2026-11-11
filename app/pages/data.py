@@ -334,7 +334,7 @@ class DataPage(QWidget):
         return card
 
     def _export_json(self) -> None:
-        default_name = f"life-manager-{clock.now().strftime('%Y%m%d-%H%M%S')}.json"
+        default_name = f"key-actions-{clock.now().strftime('%Y%m%d-%H%M%S')}.json"
         target, _ = QFileDialog.getSaveFileName(
             self, "导出为 JSON", str(paths.EXPORT_DIR / default_name), "JSON 文件 (*.json)"
         )

@@ -118,7 +118,7 @@ class Sidebar(QWidget):
         layout.setContentsMargins(16, 18, 16, 16)
         layout.setSpacing(0)
 
-        title = QLabel("Life Manager")
+        title = QLabel("Key Actions")
         title.setObjectName("SidebarTitle")
         subtitle = QLabel(f"v{__version__} · 本地单机")
         subtitle.setObjectName("SidebarSubtitle")

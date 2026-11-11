@@ -439,7 +439,7 @@ class TestAIChat(ServiceTestCase):
         )
 
         text = json.dumps(payload, ensure_ascii=False)
-        for forbidden in ("process_manager.sqlite3", "activities", "backup", "diary"):
+        for forbidden in (paths.DATABASE_PATH.name, "activities", "backup", "diary"):
             self.assertNotIn(forbidden, text)
         self.assertNotIn("api_key", text)
 
