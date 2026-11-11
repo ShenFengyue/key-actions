@@ -11,9 +11,11 @@ import math
 from PySide6.QtCore import Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut, QTextDocument
 from PySide6.QtWidgets import (
+    QDateEdit,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -26,11 +28,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import ai, theme
-from ..services import LifeManagerService
+from .. import ai, ai_records, theme
+from ..quick_capture import build_candidates, match
+from ..services import LifeManagerService, ValidationError
 from ..widgets import markdown
 from ..widgets.ai_worker import ChatWorker
-from ..widgets.common import Muted, Subtle
+from ..widgets.common import (
+    Muted,
+    NodeComboBox,
+    Subtle,
+    qdate_to_str,
+    str_to_qdate,
+)
 
 CHAT_WIDTH = 860      # 中间对话栏的最大宽度（整栏居中，不贴窗口两边）
 BUBBLE_WIDTH = 620    # 单条消息气泡的最大宽度
@@ -129,6 +138,145 @@ class MessageBubble(QWidget):
             row.addStretch(1)
 
 
+class RecordCard(QFrame):
+    """AI 说「帮你记一下」时出现的待写入卡片。
+
+    模型只看得到对话内容（拿不到节点树，这是隐私红线），所以这里显示的是
+    本地模糊匹配出来的节点，每条都可以改成别的节点。不点「写入」，数据库不会有
+    任何变化。
+    """
+
+    written = Signal(int)
+    dismissed = Signal()
+
+    def __init__(
+        self, service: LifeManagerService, intents: list[ai_records.RecordIntent],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.service = service
+        self._rows: list[tuple[NodeComboBox, QDateEdit, QLineEdit]] = []
+        self.setObjectName("RecordCard")
+        self.setMaximumWidth(BUBBLE_WIDTH)
+        self.setStyleSheet(
+            f"QFrame#RecordCard {{ background: {theme.SURFACE_ALT};"
+            f" border: 1px solid {theme.BORDER}; border-radius: 10px; }}"
+            "QLabel { background: transparent; border: none; }"
+        )
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(14, 12, 14, 12)
+        outer.setSpacing(6)
+
+        body = QWidget()
+        self._body = body
+        inner = QVBoxLayout(body)
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.setSpacing(7)
+
+        title = QLabel(f"待写入 {len(intents)} 条活动记录")
+        title.setStyleSheet(f"color: {theme.TEXT}; font-size: 13px; font-weight: 600;")
+        inner.addWidget(title)
+        tip = QLabel("确认后才写进数据库；点「不记了」不会有任何变化。")
+        tip.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 11px;")
+        inner.addWidget(tip)
+
+        candidates = build_candidates(service)
+        for index, intent in enumerate(intents, 1):
+            hits = match(candidates, intent.target, limit=1)
+            caption = QLabel(f"第 {index} 条 · 原话「{intent.target}」")
+            caption.setWordWrap(True)
+            caption.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 11px;")
+            inner.addWidget(caption)
+
+            line = QHBoxLayout()
+            line.setSpacing(8)
+            combo = NodeComboBox()
+            combo.populate(service, selected_id=hits[0].node_id if hits else None)
+            if not hits:
+                # 没有匹配到就别替用户默认选第一个节点，会记到错的地方
+                combo.setCurrentIndex(-1)
+            date_edit = QDateEdit()
+            date_edit.setCalendarPopup(True)
+            date_edit.setDisplayFormat("yyyy-MM-dd")
+            date_edit.setDate(str_to_qdate(intent.day))
+            date_edit.setFixedWidth(120)
+            line.addWidget(combo, 1)
+            line.addWidget(date_edit, 0)
+            inner.addLayout(line)
+
+            note_row = QHBoxLayout()
+            note_row.setSpacing(6)
+            note_label = QLabel("备注")
+            note_label.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 11px;")
+            note_label.setFixedWidth(30)
+            note = QLineEdit(intent.note)
+            note.setPlaceholderText("可留空")
+            note_row.addWidget(note_label)
+            note_row.addWidget(note, 1)
+            inner.addLayout(note_row)
+            self._rows.append((combo, date_edit, note))
+
+        self.error = QLabel("")
+        self.error.setWordWrap(True)
+        self.error.setStyleSheet(f"color: {theme.DANGER}; font-size: 11px;")
+        self.error.setVisible(False)
+        inner.addWidget(self.error)
+
+        buttons = QHBoxLayout()
+        buttons.setSpacing(8)
+        buttons.addStretch(1)
+        self.skip_button = QPushButton("不记了")
+        self.skip_button.clicked.connect(self.dismiss)
+        self.write_button = QPushButton("写入")
+        self.write_button.setObjectName("PrimaryButton")
+        self.write_button.clicked.connect(self.write)
+        buttons.addWidget(self.skip_button)
+        buttons.addWidget(self.write_button)
+        inner.addLayout(buttons)
+
+        outer.addWidget(body)
+
+    # ------------------------------------------------------------- 动作
+    def write(self) -> None:
+        missing = [
+            index
+            for index, (combo, _date, _note) in enumerate(self._rows, 1)
+            if not combo.current_node_id()
+        ]
+        if missing:
+            self.error.setText(f"第 {missing[0]} 条还没选节点：请选择要记在哪件事上。")
+            self.error.setVisible(True)
+            return
+
+        count = 0
+        for combo, date_edit, note in self._rows:
+            try:
+                self.service.record_activity(
+                    combo.current_node_id(), note.text(), qdate_to_str(date_edit.date())
+                )
+            except ValidationError as exc:
+                self.error.setText(f"写入失败：{exc}")
+                self.error.setVisible(True)
+                return
+            count += 1
+        self._finish(f"已写入 {count} 条活动记录。", theme.ACCENT)
+        self.written.emit(count)
+
+    def dismiss(self) -> None:
+        self._finish("未写入任何记录。", theme.TEXT_SUBTLE)
+        self.dismissed.emit()
+
+    def _finish(self, text: str, color: str) -> None:
+        """把编辑区整块换掉，只留一句结果 —— 防止再点一次写出重复记录。"""
+        self._body.setParent(None)
+        self._body.deleteLater()
+        self._rows = []
+        result = QLabel(text)
+        result.setWordWrap(True)
+        result.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: 600;")
+        self.layout().addWidget(result)
+
+
 class CenteredColumn(QWidget):
     """把内容限制在一个最大宽度内，并始终水平居中。"""
 
@@ -165,6 +313,8 @@ class AIPage(QWidget):
         self._pool = QThreadPool.globalInstance()
         self._worker: ChatWorker | None = None
         self.current_id: str | None = None
+        # 待确认的记录意图：key 是消息 id。只放在内存里，确认或取消后移除。
+        self._pending: dict[str, list[ai_records.RecordIntent]] = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 16, 20, 14)
@@ -366,7 +516,9 @@ class AIPage(QWidget):
         self._render_messages(self.service.ai_messages(self.current_id), pending=True)
         self._fill_conversations()
 
-        worker = ChatWorker(self.ai_config, messages)
+        worker = ChatWorker(
+            self.ai_config, messages, system_hint=ai_records.protocol_hint()
+        )
         self._worker = worker
         worker.signals.done.connect(self._on_reply)
         worker.signals.failed.connect(self._on_error)
@@ -384,9 +536,19 @@ class AIPage(QWidget):
         self.input.setFocus()
 
     def _on_reply(self, reply: str) -> None:
+        clean, intents = ai_records.extract(reply)
         if self.current_id:
-            if reply.strip():
-                self.service.append_ai_message(self.current_id, "assistant", reply)
+            if clean.strip():
+                message_id = self.service.append_ai_message(self.current_id, "assistant", clean)
+                if intents:
+                    self._pending[message_id] = intents
+            elif intents:
+                message_id = self.service.append_ai_message(
+                    self.current_id,
+                    "assistant",
+                    f"（解析到 {len(intents)} 条待记录内容，请在下方确认。）",
+                )
+                self._pending[message_id] = intents
             else:
                 self.status.setText("模型返回了空内容。")
         self._finish()
@@ -425,6 +587,17 @@ class AIPage(QWidget):
             self.messages_layout.addWidget(
                 MessageBubble(message["role"], message["content"])
             )
+            intents = self._pending.get(str(message.get("id") or ""))
+            if intents:
+                card = RecordCard(self.service, intents)
+                # 默认参数把这条消息绑死，避免闭包捕获循环变量
+                card.written.connect(
+                    lambda count, msg=message: self._on_records_written(msg, count)
+                )
+                card.dismissed.connect(
+                    lambda msg=message: self._on_records_dismissed(msg)
+                )
+                self.messages_layout.addWidget(card)
 
         if pending:
             self.messages_layout.addWidget(MessageBubble("assistant", "正在回答…"))
@@ -437,6 +610,14 @@ class AIPage(QWidget):
 
         self.messages_layout.addStretch(1)
         QTimer.singleShot(0, self._scroll_to_bottom)
+
+    def _on_records_written(self, message: dict[str, str], count: int) -> None:
+        self._pending.pop(str(message.get("id") or ""), None)
+        self.status.setText(f"已记录 {count} 条活动。")
+        self.notice.setText(f"已记录 {count} 条活动，可在「活动记录」页查看。")
+
+    def _on_records_dismissed(self, message: dict[str, str]) -> None:
+        self._pending.pop(str(message.get("id") or ""), None)
 
     def _scroll_to_bottom(self) -> None:
         bar = self.scroll.verticalScrollBar()

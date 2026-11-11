@@ -92,12 +92,21 @@ def endpoint(base_url: str) -> str:
     return base + "/chat/completions"
 
 
-def build_payload(config: AIConfig, messages: list[dict[str, str]], **extra: Any) -> dict[str, Any]:
-    """构造请求体：只有对话消息（+ 设置里的人设），不带任何本地数据。"""
+def build_payload(
+    config: AIConfig,
+    messages: list[dict[str, str]],
+    *,
+    system_hint: str = "",
+    **extra: Any,
+) -> dict[str, Any]:
+    """构造请求体：只有对话消息（+ 设置里的人设 + 程序自带的格式约定），不带任何本地数据。"""
     prepared: list[dict[str, str]] = []
     system_prompt = str(config.get("system_prompt") or "").strip()
     if system_prompt:
         prepared.append({"role": "system", "content": system_prompt})
+    hint = str(system_hint or "").strip()
+    if hint:
+        prepared.append({"role": "system", "content": hint})
     for message in messages:
         role = message.get("role")
         content = str(message.get("content") or "").strip()
@@ -132,6 +141,7 @@ def chat(
     messages: list[dict[str, str]],
     *,
     timeout: float = DEFAULT_TIMEOUT,
+    system_hint: str = "",
     **extra: Any,
 ) -> str:
     """调用 OpenAI 兼容的 /chat/completions，返回助手回复文本。"""
@@ -139,7 +149,7 @@ def chat(
         raise AIError("还没有填写 API Key（在「设置」里填）。")
 
     url = endpoint(str(config.get("base_url") or ""))
-    payload = build_payload(config, messages, **extra)
+    payload = build_payload(config, messages, system_hint=system_hint, **extra)
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,
