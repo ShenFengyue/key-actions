@@ -14,7 +14,7 @@ import logging
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from . import paths
 from .models import (
@@ -890,13 +890,6 @@ class LifeManagerService:
         ).fetchall()
         return [Event.from_row(row) for row in rows]
 
-    def recent_events(self, limit: int = 50) -> list[Event]:
-        rows = self.db.conn.execute(
-            "SELECT * FROM events ORDER BY created_at DESC, rowid DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        return [Event.from_row(row) for row in rows]
-
     def event_count(self, node_id: str | None = None) -> int:
         if node_id is None:
             return int(self.db.conn.execute("SELECT count(*) AS n FROM events").fetchone()["n"])
@@ -1389,15 +1382,3 @@ def describe_event(event: Event) -> str:
         new = after.get("description") or "（空）"
         return f"注释：{old} → {new}"
     return event.event_type.label
-
-
-def iter_tree(service: LifeManagerService, include_archived: bool = True) -> Iterable[tuple[Node, int]]:
-    """按深度优先顺序遍历整棵树，返回 (节点, 层级)。"""
-    def _walk(parent_id: str | None, depth: int) -> Iterable[tuple[Node, int]]:
-        for child in service.children(parent_id):
-            if not include_archived and child.is_archived:
-                continue
-            yield child, depth
-            yield from _walk(child.id, depth + 1)
-
-    yield from _walk(None, 0)

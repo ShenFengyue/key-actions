@@ -1,11 +1,10 @@
-"""通用界面组件：卡片、状态标签、可折叠分组、节点选择器与对话框。"""
+"""通用界面组件：卡片、状态标签、节点选择器与对话框。"""
 
 from __future__ import annotations
 
 import logging
-from datetime import date
 
-from PySide6.QtCore import QDate, QPoint, QRect, QTimer, Qt, Signal
+from PySide6.QtCore import QDate, QTimer, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QCursor, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -179,105 +178,6 @@ class StatusChip(QLabel):
             f"color: {foreground}; background: {background}; border-radius: 10px;"
             f" padding: 1px 9px; font-size: 11px;"
         )
-
-
-class CollapsibleSection(QWidget):
-    """可折叠分组：标题行 + 可隐藏的内容区。"""
-
-    toggled = Signal(bool)
-    headerContextRequested = Signal(QPoint)
-
-    def __init__(
-        self,
-        title: str,
-        parent: QWidget | None = None,
-        *,
-        expanded: bool = True,
-        indent: int = 0,
-        subtitle: str = "",
-    ) -> None:
-        super().__init__(parent)
-        self._expanded = expanded
-        self._title_text = title
-        self._indent = indent
-
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(4)
-
-        self._header_row = QHBoxLayout()
-        self._header_row.setContentsMargins(indent, 0, 0, 0)
-        self._header_row.setSpacing(8)
-        self._toggle = QPushButton()
-        self._toggle.setObjectName("SectionToggle")
-        self._toggle.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._toggle.clicked.connect(self.toggle)
-        self._subtitle = Subtle(subtitle)
-        self._header_row.addWidget(self._toggle)
-        self._header_row.addWidget(self._subtitle)
-        self._header_row.addStretch(1)
-        outer.addLayout(self._header_row)
-
-        # 标题下面的小字注释：没有内容时完全不占位置
-        self._note = Subtle("")
-        self._note.setWordWrap(True)
-        self._note.setVisible(False)
-        note_row = QHBoxLayout()
-        note_row.setContentsMargins(indent + 26, 0, 0, 0)
-        note_row.addWidget(self._note)
-        note_row.addStretch(1)
-        self._note_row = note_row
-        outer.addLayout(note_row)
-
-        self.content = QWidget()
-        self.body = QVBoxLayout(self.content)
-        self.body.setContentsMargins(indent + 4, 0, 0, 0)
-        self.body.setSpacing(8)
-        outer.addWidget(self.content)
-
-        self._sync()
-
-    # -------------------------------------------------------------- API
-    def add_header_widget(self, widget: QWidget) -> None:
-        self._header_row.addWidget(widget)
-
-    def set_subtitle(self, text: str) -> None:
-        self._subtitle.setText(text)
-
-    def set_note(self, text: str) -> None:
-        """标题下的小字注释；传空字符串则完全隐藏（不留空位）。"""
-        text = (text or "").strip()
-        self._note.setText(text)
-        self._note.setVisible(bool(text))
-
-    def note(self) -> str:
-        return self._note.text()
-
-    def contextMenuEvent(self, event) -> None:  # pragma: no cover - 需要 GUI
-        # 只有右键点在标题行上时才交给外部处理（编辑注释）
-        toggle = self._toggle.geometry()
-        if toggle.top() - 6 <= event.pos().y() <= toggle.bottom() + 6:
-            self.headerContextRequested.emit(event.globalPos())
-            event.accept()
-            return
-        super().contextMenuEvent(event)
-
-    def set_expanded(self, expanded: bool, emit: bool = True) -> None:
-        self._expanded = expanded
-        self._sync()
-        if emit:
-            self.toggled.emit(expanded)
-
-    def is_expanded(self) -> bool:
-        return self._expanded
-
-    def toggle(self) -> None:
-        self.set_expanded(not self._expanded)
-
-    def _sync(self) -> None:
-        arrow = "▾" if self._expanded else "▸"
-        self._toggle.setText(f"{arrow}  {self._title_text}")
-        self.content.setVisible(self._expanded)
 
 
 class NodeComboBox(QComboBox):
@@ -1179,18 +1079,6 @@ def warn(parent: QWidget, title: str, text: str) -> None:
     box.exec()
 
 
-def make_row(*widgets: QWidget, stretch: bool = True, spacing: int = 8) -> QWidget:
-    container = QWidget()
-    layout = QHBoxLayout(container)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(spacing)
-    for widget in widgets:
-        layout.addWidget(widget)
-    if stretch:
-        layout.addStretch(1)
-    return container
-
-
 def clear_layout(layout) -> None:
     """立即清空布局中的控件。
 
@@ -1216,12 +1104,3 @@ def hline() -> QFrame:
     line.setStyleSheet(f"color: {theme.BORDER_MUTED}; background: {theme.BORDER_MUTED}; max-height: 1px;")
     line.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     return line
-
-
-def weekday_text(day: str) -> str:
-    try:
-        parsed = date.fromisoformat(day)
-    except ValueError:
-        return ""
-    names = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
-    return names[parsed.weekday()]

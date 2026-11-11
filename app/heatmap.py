@@ -298,8 +298,3 @@ def _month_labels(start: date, weeks: int) -> tuple[tuple[int, str], ...]:
         labels.append((week_index, f"{month}月"))
         last_column = week_index
     return tuple(labels)
-
-
-def shift_window(grid: CalendarGrid, weeks: int) -> CalendarGrid:
-    """在时间轴上前后平移一个窗口（用于查看更早的历史）。"""
-    return build_calendar(end_date=grid.end + timedelta(weeks=weeks), weeks=grid.weeks)

@@ -40,14 +40,6 @@ class Layout:
     width: float = 0.0
     height: float = 0.0
 
-    def bounds_of(self, node_ids: list[str]) -> tuple[float, float, float, float]:
-        """一组节点的整体包围盒 (left, top, right, bottom)。"""
-        left = min(self.placements[node].x for node in node_ids)
-        top = min(self.placements[node].y for node in node_ids)
-        right = max(self.placements[node].right for node in node_ids)
-        bottom = max(self.placements[node].y + self.placements[node].height for node in node_ids)
-        return left, top, right, bottom
-
 
 def layout_forest(
     roots: list[LayoutNode],
@@ -115,19 +107,3 @@ def layout_forest(
 
     total_height = top_cursor
     return Layout(placements=placements, width=total_width, height=total_height)
-
-
-def connector_path(parent: Placement, child: Placement, radius: float = 12.0) -> list[tuple[float, float]]:
-    """父子之间的连线控制点：两段横向线 + 中间竖线（XMind 逻辑图风格）。"""
-    start_x = parent.right
-    start_y = parent.center_y
-    end_x = child.x
-    end_y = child.center_y
-    mid_x = start_x + (end_x - start_x) * 0.5
-    radius = min(radius, abs(end_y - start_y) / 2, abs(mid_x - start_x))
-    return [
-        (start_x, start_y),
-        (mid_x, start_y),
-        (mid_x, end_y),
-        (end_x, end_y),
-    ]

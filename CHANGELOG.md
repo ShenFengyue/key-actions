@@ -8,6 +8,30 @@
 
 ---
 
+## 1.40.1
+
+数据结构：**v5**（不变）
+
+### 清理
+
+纯删除，界面与行为没有任何变化（238 项测试全绿，逐页截图比对只差时钟与时间戳文字）：
+
+- `widgets/common.py`：删掉从没被引用过的 `CollapsibleSection`（可折叠分组，约 100 行），
+  以及 `make_row`、`weekday_text`；顺手去掉随之失效的 `date` / `QPoint` / `QRect` 导入。
+- `pages/heatmaps.py`：删掉从未被调用的 `_append_deleted_rows_legacy`（"已删除节点分区"的旧实现），
+  以及只为它存在的 `_deleted_rows` 字典。已删除节点不出现在热力图页这条规则，由
+  `_deleted_children_annotation` 的标注继续承担。
+- 其余零引用的小函数：`mindmap.bounds_of` / `connector_path`、
+  `services.iter_tree` / `recent_events`、`models.describe_path` / `Status.is_closed` /
+  `Association.is_active`、`clock.weekday_name`、`theme.is_dark`、`heatmap.shift_window`、
+  `storage.set_meta`、`heatmap_calendar.window_text`。
+- `tests/test_ui_smoke.py`：原来靠断言私有字典为空的"已删除节点不上热力图页"那一条，
+  改成直接断言页面上每一行对应的节点都不是已删除 —— 结论一样，且不再依赖实现细节。
+
+合计 **-262 行 / +4 行**，涉及 11 个文件。
+
+---
+
 ## 1.40.0
 
 数据结构：**v5**（不变）

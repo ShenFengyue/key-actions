@@ -487,7 +487,6 @@ class HeatmapsPage(QWidget):
         self._process_rows: dict[str, HeatmapRow] = {}
         self._rows_by_area: dict[str, list[HeatmapRow]] = {}
         self._thread_rows: dict[str, list[HeatmapRow]] = {}
-        self._deleted_rows: dict[str, HeatmapRow] = {}
         self._collapsed_areas: set[str] = set()
         # 哪些进程被手动展开了线程热力图（线程默认收起，连"全部展开"也不动它）
         self._expanded_processes: set[str] = set()
@@ -627,7 +626,6 @@ class HeatmapsPage(QWidget):
         self._area_rows.clear()
         self._process_rows.clear()
         self._rows_by_area.clear()
-        self._deleted_rows.clear()
 
         first = True
         for index, area in enumerate(self.service.areas()):
@@ -726,60 +724,6 @@ class HeatmapsPage(QWidget):
         self.container_layout.addWidget(note)
         self.container_layout.addStretch(1)
         self._apply_collapsed()
-
-    def _append_deleted_rows_legacy(self) -> None:
-        """已删除的领域与进程：数据保留，热力图仍然可见，并标注原来属于哪里。"""
-        deleted_areas = self.service.deleted_children(None, NodeType.AREA)
-        deleted_processes = [
-            node
-            for node in self.service.all_nodes(include_deleted=True)
-            if node.is_deleted and node.type is NodeType.PROCESS
-        ]
-        if not deleted_areas and not deleted_processes:
-            return
-        self.container_layout.addSpacing(AREA_GAP)
-        self.container_layout.addWidget(_divider())
-        self.container_layout.addSpacing(10)
-        self.container_layout.addWidget(SectionHeader("已删除（数据保留）"))
-        self.container_layout.addWidget(
-            Subtle("活动与热力图数据都还在，可从「进程树 → 已删除…」恢复")
-        )
-        self.container_layout.addSpacing(6)
-
-        for node in deleted_areas:
-            row = HeatmapRow(
-                self.service,
-                node,
-                "area",
-                theme.TEXT_SUBTLE,
-                on_changed=self._on_activities_changed,
-            )
-            row.openRequested.connect(
-                lambda node_id=node.id: self._open_detail("area", node_id)
-            )
-            row.set_note("该领域下的记录仍计入这张热力图")
-            self.container_layout.addWidget(row)
-            self._rows[node.id] = row
-            self._deleted_rows[node.id] = row
-
-        for node in deleted_processes:
-            parent = self.service.get_node(node.parent_id) if node.parent_id else None
-            original = " → ".join(step.name for step in self.service.path_of(node.id)[:-1])
-            suffix = "（它所在的领域也已删除）" if parent is not None and parent.is_deleted else ""
-            row = HeatmapRow(
-                self.service,
-                node,
-                "process",
-                theme.TEXT_SUBTLE,
-                on_changed=self._on_activities_changed,
-            )
-            row.openRequested.connect(
-                lambda node_id=node.id: self._open_detail("process", node_id)
-            )
-            row.set_note(f"原来归属：{original}{suffix}")
-            self.container_layout.addWidget(row)
-            self._rows[node.id] = row
-            self._deleted_rows[node.id] = row
 
     def _refresh_data(self) -> None:
         grid = self._grid()

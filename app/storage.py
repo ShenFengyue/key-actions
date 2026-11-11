@@ -331,14 +331,6 @@ class Database:
         row = self.conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         return bool(row and row["value"] == "1")
 
-    def set_meta(self, key: str, value: str) -> None:
-        with self.transaction() as tx:
-            tx.execute(
-                "INSERT INTO meta(key, value) VALUES(?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, value),
-            )
-
     def get_meta(self, key: str) -> str | None:
         row = self.conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         return row["value"] if row else None

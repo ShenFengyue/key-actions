@@ -45,12 +45,6 @@ def today_str() -> str:
     return today().isoformat()
 
 
-def weekday_name(value: date | None = None) -> str:
-    """星期一 ~ 星期日。"""
-    target = value or today()
-    return WEEKDAY_NAMES[target.weekday()]
-
-
 def display(value: datetime | None = None) -> tuple[str, str]:
     """给界面用：返回（时刻, 日期）两行文本。"""
     current = value or now()

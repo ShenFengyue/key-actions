@@ -97,10 +97,6 @@ class HeatmapCalendar(QWidget):
         return self._dim
 
     @property
-    def window_text(self) -> str:
-        return f"{self._grid.date_from} 至 {self._grid.date_to}"
-
-    @property
     def grid(self) -> heatmap_stats.CalendarGrid:
         """当前显示的日历窗口（统计时使用同一窗口以保证口径一致）。"""
         return self._grid

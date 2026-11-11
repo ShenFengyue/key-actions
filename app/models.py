@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import date
 from enum import Enum
 from typing import Any
 
@@ -73,10 +72,6 @@ class Status(str, Enum):
     PAUSED = "已暂停"
     DONE = "已完成"
     ARCHIVED = "已归档"
-
-    @property
-    def is_closed(self) -> bool:
-        return self in (Status.DONE, Status.ARCHIVED)
 
 
 STATUS_CHOICES: tuple[Status, ...] = (
@@ -172,10 +167,6 @@ class Association:
     process_id: str
     created_at: str
     ended_at: str | None = None
-
-    @property
-    def is_active(self) -> bool:
-        return self.ended_at is None
 
     @classmethod
     def from_row(cls, row: Any) -> "Association":
@@ -276,10 +267,3 @@ class Event:
             created_at=row["created_at"],
             note=row["note"] or "",
         )
-
-
-def describe_path(steps: list[PathStep] | None) -> str:
-    """把归属路径快照渲染成「领域 1 → 进程 1-1 → 线程 1-1-1」这类文本。"""
-    if not steps:
-        return "（无归属）"
-    return " → ".join(step.name for step in steps)

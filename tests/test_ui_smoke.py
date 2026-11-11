@@ -765,7 +765,9 @@ class UiSmokeTest(unittest.TestCase):
         # 界面上彻底不出现（连"已删除"那一块也没有了）
         self.assertNotIn(travel.id, page._rows)
         self.assertNotIn(travel.id, page._process_rows)
-        self.assertEqual(page._deleted_rows, {})
+        # 这一页里任何一行对应的节点都必须是没被删除的
+        for shown_id in list(page._rows) + list(page._process_rows):
+            self.assertFalse(self.service.get_node(shown_id).is_deleted)
         # 数据还在：活动仍然记在这个进程名下，恢复节点后热力图会重新出现
         self.assertEqual(len(self.service.list_activities(node_id=travel.id)), 1)
         # 领域汇总里仍然含这笔（按当时的归属快照），所以那条标注保留

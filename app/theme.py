@@ -159,10 +159,6 @@ def apply_theme(name: str) -> str:
     return _current
 
 
-def is_dark() -> bool:
-    return _current == "dark"
-
-
 def map_color(index: int) -> str:
     """思维导图里区分领域的强调色（按领域顺序循环使用）。"""
     return MAP_PALETTE[index % len(MAP_PALETTE)]
