@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+import math
+
 from PySide6.QtCore import Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QShortcut, QTextDocument
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -18,65 +20,75 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
-    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
 from .. import ai, theme
 from ..services import LifeManagerService
+from ..widgets import markdown
 from ..widgets.ai_worker import ChatWorker
 from ..widgets.common import Muted, Subtle
 
 CHAT_WIDTH = 860      # 中间对话栏的最大宽度（整栏居中，不贴窗口两边）
 BUBBLE_WIDTH = 620    # 单条消息气泡的最大宽度
+BODY_MIN_WIDTH = 140  # 极短消息也别把气泡压成一条窄缝
 
 
-class MarkdownView(QTextBrowser):
-    """把一段 Markdown 渲染成自适应高度的静态视图（不滚动、不弹浏览器）。"""
+class MarkdownView(QLabel):
+    """把一段 Markdown 渲染成宽度贴合内容的富文本（可选中复制，不滚动）。
+
+    宽度按"不换行时最宽的那一行"算，再交给 QLabel 自己换行。这样不会出现
+    QTextBrowser 那套「控件宽度和视口宽度差 16px」的坑 —— 那正是长句末尾
+    被裁、短句莫名折行的原因。
+    """
 
     def __init__(self, text: str, max_width: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._max_width = max_width
-        self._adjusting = False
-        self.setOpenLinks(False)
-        self.setOpenExternalLinks(False)
-        self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setStyleSheet("QTextBrowser { background: transparent; border: none; }")
-        self.document().setDocumentMargin(0)
+        self.setTextFormat(Qt.TextFormat.RichText)
+        self.setWordWrap(True)
+        self.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setStyleSheet("QLabel { background: transparent; }")
         self.set_markdown(text)
 
     def set_markdown(self, text: str) -> None:
-        document = self.document()
-        document.setMarkdown(text or "")
-        document.setTextWidth(-1)
-        ideal = document.idealWidth()
-        width = int(min(self._max_width, max(80, ideal + 6)))
+        self.setText(markdown.to_html(text or "", self._palette_style()))
+        width = self._natural_width()
         self.setFixedWidth(width)
-        self._fit_height()
+        self.setFixedHeight(self._wrapped_height(width))
 
-    def _fit_height(self) -> None:
-        """按当前真实宽度量一次高度，避免刚创建时宽度还没定、内容被裁掉。"""
-        if self._adjusting:
-            return
-        self._adjusting = True
-        try:
-            document = self.document()
-            document.setTextWidth(max(40, self.viewport().width()))
-            height = max(24, int(document.size().height()) + 2)
-            if abs(self.height() - height) > 1:
-                self.setFixedHeight(height)
-            self.verticalScrollBar().setValue(0)
-        finally:
-            self._adjusting = False
+    # -------------------------------------------------------- 尺寸
+    def _palette_style(self) -> dict[str, str]:
+        return {
+            "text": theme.TEXT,
+            "muted": theme.TEXT_MUTED,
+            "code_bg": theme.SURFACE_ALT,
+            "border": theme.BORDER,
+        }
 
-    def resizeEvent(self, event) -> None:  # pragma: no cover - 需要 GUI
-        super().resizeEvent(event)
-        if not self._adjusting:
-            self._fit_height()
+    def _measure_document(self, width: float) -> QTextDocument:
+        document = QTextDocument()
+        document.setDocumentMargin(0)
+        document.setHtml(self.text())
+        document.setTextWidth(width)
+        return document
+
+    def _natural_width(self) -> int:
+        ideal = self._measure_document(-1).idealWidth()
+        return int(min(self._max_width, max(BODY_MIN_WIDTH, math.ceil(ideal) + 4)))
+
+    def _wrapped_height(self, width: int) -> int:
+        height = self.heightForWidth(width)
+        if height <= 0:
+            height = int(math.ceil(self._measure_document(width).size().height()))
+        return max(20, height)
 
 
 class MessageBubble(QWidget):
@@ -106,9 +118,7 @@ class MessageBubble(QWidget):
         inner.addWidget(who)
 
         body = MarkdownView(text, BUBBLE_WIDTH - 28)
-        body.setStyleSheet(
-            f"QTextBrowser {{ background: transparent; border: none; color: {theme.TEXT}; }}"
-        )
+        body.setStyleSheet(f"QLabel {{ background: transparent; color: {theme.TEXT}; }}")
         inner.addWidget(body)
 
         if user:

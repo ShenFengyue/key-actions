@@ -2777,17 +2777,58 @@ class UiSmokeTest(unittest.TestCase):
 
     def test_ai_messages_render_markdown(self) -> None:
         """AI 回复按 Markdown 渲染：标题、列表、粗体、代码都不再显示原始符号。"""
+        from PySide6.QtGui import QTextDocument
+
         from app.pages.ai import MarkdownView, MessageBubble
 
         bubble = MessageBubble("assistant", "## 标题\n\n- 一\n- 二\n\n**粗体** 和 `code`")
         view = bubble.findChild(MarkdownView)
         self.assertIsNotNone(view)
-        text = view.document().toPlainText()
+        document = QTextDocument()
+        document.setHtml(view.text())
+        text = document.toPlainText()
         self.assertIn("标题", text)
         self.assertIn("粗体", text)
         self.assertIn("code", text)
         for token in ("##", "**", "`"):
             self.assertNotIn(token, text, "Markdown 符号没有被解析掉")
+
+    def test_ai_short_message_stays_on_one_line(self) -> None:
+        """短句不能被折成两行 —— 之前视口比控件窄 16px，末尾几个字会被挤下去。"""
+        from app.pages.ai import MarkdownView, MessageBubble
+
+        bubble = MessageBubble("user", "这周的重点是什么？给个清单，别太长。")
+        view = bubble.findChild(MarkdownView)
+        self.assertIsNotNone(view)
+        # 宽度再加 200 时高度不变 → 说明当前宽度下就没折行
+        self.assertEqual(
+            view.heightForWidth(view.width()),
+            view.heightForWidth(view.width() + 200),
+            f"短句被折行了：宽 {view.width()}、高 {view.height()}",
+        )
+
+    def test_ai_long_message_is_not_clipped(self) -> None:
+        """长段落必须换行铺满气泡，右边不能把文字裁掉。"""
+        from PySide6.QtGui import QTextDocument
+
+        from app.pages.ai import BUBBLE_WIDTH, MarkdownView, MessageBubble
+
+        long_text = "补充说明：" + "这一段故意写得比较长，用来确认右边不会再被裁掉。" * 6
+        bubble = MessageBubble("assistant", long_text)
+        view = bubble.findChild(MarkdownView)
+        self.assertIsNotNone(view)
+        self.assertLessEqual(view.width(), BUBBLE_WIDTH - 28)
+
+        document = QTextDocument()
+        document.setDocumentMargin(0)
+        document.setHtml(view.text())
+        document.setTextWidth(view.width())
+        needed = document.size().height()
+        self.assertGreaterEqual(
+            view.height() + 1,
+            int(needed),
+            f"气泡高度不够，内容会被裁：需要 {needed:.0f}，实际 {view.height()}",
+        )
 
 
 if __name__ == "__main__":
