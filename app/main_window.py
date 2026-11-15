@@ -194,10 +194,10 @@ class MainWindow(QMainWindow):
     def _build_top_bar(self) -> QWidget:
         bar = QWidget()
         bar.setObjectName("TopBar")
-        bar.setFixedHeight(52)
+        bar.setFixedHeight(66)
         row = QHBoxLayout(bar)
-        row.setContentsMargins(10, 0, 16, 0)
-        row.setSpacing(10)
+        row.setContentsMargins(22, 0, 26, 0)
+        row.setSpacing(12)
 
         self.sidebar_toggle = QPushButton("☰")
         self.sidebar_toggle.setObjectName("Collapse")
@@ -209,14 +209,41 @@ class MainWindow(QMainWindow):
         self.title_label = QLabel("总览")
         self.title_label.setObjectName("PageTitle")
         row.addWidget(self.title_label)
+
+        self.subtitle_label = QLabel("")
+        self.subtitle_label.setObjectName("PageSubtitle")
+        row.addWidget(self.subtitle_label)
         row.addStretch(1)
 
+        capture = QPushButton("快速记录 Ctrl+N")
+        capture.setObjectName("Pill")
+        capture.setFixedHeight(32)
+        capture.setCursor(Qt.CursorShape.PointingHandCursor)
+        capture.setToolTip("打开极简快速记录（也可以直接按 Ctrl+N）")
+        capture.clicked.connect(self.quick_capture)
+        row.addWidget(capture)
+
         quick = QPushButton("记录活动")
-        quick.setObjectName("Primary")
+        quick.setObjectName("PillPrimary")
+        quick.setFixedHeight(32)
+        quick.setCursor(Qt.CursorShape.PointingHandCursor)
         quick.setToolTip("打开完整记录窗口（可以改日期）· Ctrl+N 是极简快速记录")
         quick.clicked.connect(self._quick_record)
         row.addWidget(quick)
+        self._update_subtitle()
         return bar
+
+    def _update_subtitle(self) -> None:
+        """顶栏标题旁的一句话：今天已经记了几次。"""
+        label = getattr(self, "subtitle_label", None)
+        if label is None:
+            return
+        if not self.service.db.connected:
+            label.setText("")
+            return
+        today = today_str()
+        count = len(self.service.list_activities(date_from=today, date_to=today))
+        label.setText(f"今天已经记了 {count} 次" if count else "今天还没有记录")
 
     def _install_shortcuts(self) -> None:
         for key, _label, shortcut_text in ALL_NAV_ITEMS:
@@ -255,6 +282,7 @@ class MainWindow(QMainWindow):
 
         这样每次操作只重绘眼前需要更新的内容，避免整窗闪烁与无谓开销。
         """
+        self._update_subtitle()
         key = self.current_page_key()
         if key:
             self._refresh_page(key)
@@ -282,6 +310,7 @@ class MainWindow(QMainWindow):
             return
         self.stack.setCurrentWidget(page)
         self.title_label.setText(PAGE_TITLES.get(key, ""))
+        self._update_subtitle()
         self.sidebar.set_current(key)
         self.config.set("last_page", key)
         if self._rendered.get(key) != self.service.revision:

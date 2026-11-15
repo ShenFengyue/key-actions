@@ -39,11 +39,18 @@ class HeatmapCalendar(QWidget):
         weeks: int = heatmap_stats.DEFAULT_WEEKS,
         scale: float = 1.0,
         hot: bool = False,
+        highlight_day: str | None = None,
+        show_labels: bool = True,
     ) -> None:
         super().__init__(parent)
         self._weeks = weeks
         # 总热力图专用：多一档橙色，用来区分"记了很多条"的日子
         self._hot = bool(hot)
+        # 彩蛋：只给某一天上特殊颜色（目前只有总览的总热力图传这个参数）
+        self._highlight_day = highlight_day
+        # 一页里出现多张图时，只让最上面那张画月份/星期标记：
+        # 留白照旧保留，所以下面几张的格子与第一张严格对齐，方便横向比对。
+        self._show_labels = bool(show_labels)
         # scale 让总热力图可以做得明显比其它热力图更大
         self._scale = max(0.6, float(scale))
         self._cell = self.CELL * self._scale
@@ -142,23 +149,25 @@ class HeatmapCalendar(QWidget):
         painter.setPen(QPen(QColor(theme.TEXT_SUBTLE)))
 
         # 月份标记
-        for column, label in self._grid.month_labels:
-            x = self._left_gutter + column * self._step
-            painter.drawText(
-                QRect(int(x), 0, 44, int(self._top_gutter)),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                label,
-            )
+        if self._show_labels:
+            for column, label in self._grid.month_labels:
+                x = self._left_gutter + column * self._step
+                painter.drawText(
+                    QRect(int(x), 0, 44, int(self._top_gutter)),
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    label,
+                )
 
         # 星期标记
         text_rect_height = int(self._cell) + 2
-        for row, label in WEEKDAY_LABELS.items():
-            y = self._top_gutter + row * self._step - 1
-            painter.drawText(
-                QRect(0, int(y), int(self._left_gutter) - 6, text_rect_height),
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                label,
-            )
+        if self._show_labels:
+            for row, label in WEEKDAY_LABELS.items():
+                y = self._top_gutter + row * self._step - 1
+                painter.drawText(
+                    QRect(0, int(y), int(self._left_gutter) - 6, text_rect_height),
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                    label,
+                )
 
         # 方格
         # 空格描边也用主题色（深色下它与空格填充同色，等于不描边，不会画出一片网格）
@@ -169,13 +178,17 @@ class HeatmapCalendar(QWidget):
                 if day is None:
                     continue
                 count = self._counts.get(day, 0)
+                rect = self._cell_rect(column, row)
+                painter.setPen(Qt.PenStyle.NoPen)
+                if self._highlight_day and day == self._highlight_day:
+                    painter.setBrush(QColor(theme.EASTER_PINK))
+                    painter.drawRoundedRect(rect, self._radius, self._radius)
+                    continue
                 level = (
                     heatmap_stats.level_for_global(count)
                     if self._hot
                     else heatmap_stats.level_for(count)
                 )
-                rect = self._cell_rect(column, row)
-                painter.setPen(Qt.PenStyle.NoPen)
                 if self._dim:
                     # 一条记录都没有：只留极淡的格纹，不描边，不去抢视线
                     painter.setBrush(QColor(theme.HEATMAP_DIM_EMPTY))

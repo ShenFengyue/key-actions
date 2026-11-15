@@ -1,13 +1,18 @@
 """页面 A：总览 Overview。
 
-展示当前重点、快速记录入口、三个 Area 的热力图与最近活动。
+版式是"纸面"式的：不画卡片框，区块之间只靠留白与细线分隔。
+    - 总热力图在最上，右侧是时钟；下面依次是当前重点、快速记录、领域热力图、最近活动；
+    - 当前重点不画框，只在卡片之间画一条竖细线；
+    - 快速记录是三个"只有下划线"的字段。
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (
     QDateEdit,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -32,21 +37,24 @@ from ..widgets.common import (
     open_activity_dialog,
     QuickRecordDialog,
     SectionHeader,
-    StatusChip,
     Subtle,
     clear_layout,
-    hline,
     qdate_to_str,
     str_to_qdate,
     warn,
 )
 from ..widgets.heatmap_calendar import HeatmapCalendar, HeatmapLegend
 
+# 区块之间、区块内部两档留白（纸面风格只靠这两档拉开层次）
+SECTION_GAP = 32
+INNER_GAP = 14
+
 
 class FocusCard(Card):
     """一个重点：名称、主要归属、状态、下一步行动。
 
     卡片本身可以按住拖动 —— 只调整它在总览里的显示顺序，不改任何数据。
+    外观上没有边框；除了第一张，每张左侧画一条竖细线当分隔。
     """
 
     recordRequested = Signal(str)
@@ -62,6 +70,9 @@ class FocusCard(Card):
         self.node_id = node_id
         self._drag_origin: QPoint | None = None
         self._dragging = False
+        self._divider = False
+        self.body.setContentsMargins(0, 8, 26, 8)
+        self.body.setSpacing(6)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.setCursor(Qt.CursorShape.OpenHandCursor)
 
@@ -70,12 +81,15 @@ class FocusCard(Card):
         self._title = QLabel()
         self._title.setStyleSheet("font-size: 14px; font-weight: 600;")
         title_row.addWidget(self._title)
-        title_row.addStretch(1)
-        self._chip = StatusChip(Status.DOING)
+        # 状态用纯文字：一屏里只留一个重色，状态不再抢按钮的注意力
+        self._chip = QLabel()
+        self._chip.setStyleSheet("font-size: 11px;")
         title_row.addWidget(self._chip)
+        title_row.addStretch(1)
         self.body.addLayout(title_row)
 
-        self._path = Muted()
+        self._path = Subtle("")
+        self._path.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 12px;")
         self.body.addWidget(self._path)
 
         self._action = QLabel()
@@ -84,9 +98,10 @@ class FocusCard(Card):
         self.body.addStretch(1)
 
         buttons = QHBoxLayout()
-        buttons.setSpacing(6)
+        buttons.setSpacing(14)
         record = QPushButton("记录活动")
         record.setObjectName("Primary")
+        record.setFixedHeight(28)
         record.clicked.connect(lambda: self.recordRequested.emit(self.node_id))
         detail = QPushButton("详情")
         detail.setObjectName("Ghost")
@@ -96,6 +111,27 @@ class FocusCard(Card):
         buttons.addStretch(1)
         self.body.addLayout(buttons)
         self.update_content()
+
+    # ------------------------------------------------------------ 分隔线
+    def set_divider(self, show: bool) -> None:
+        """第一张不画；其余每张左侧画一条竖线，代替卡片框。
+
+        画线的同时把正文往右挪一点，否则文字会贴着那条线。
+        """
+        self.body.setContentsMargins(26 if show else 0, 8, 26, 8)
+        if self._divider != show:
+            self._divider = show
+            self.update()
+
+    def paintEvent(self, event) -> None:  # pragma: no cover - 需要 GUI
+        super().paintEvent(event)
+        if not self._divider:
+            return
+        painter = QPainter(self)
+        pen = QColor(theme.HAIRLINE)
+        painter.setPen(pen)
+        painter.drawLine(0, 8, 0, self.height() - 8)
+        painter.end()
 
     # ------------------------------------------------------------ 拖动换位
     def mousePressEvent(self, event) -> None:  # pragma: no cover - 需要 GUI
@@ -132,7 +168,7 @@ class FocusCard(Card):
 
     def _set_dragging_style(self, active: bool) -> None:
         if active:
-            self.setStyleSheet(f"#FocusCard {{ border: 1px solid {theme.ACCENT}; }}")
+            self.setStyleSheet(f"#FocusCard {{ background: {theme.SURFACE}; border-radius: 8px; }}")
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
         else:
             self.setStyleSheet("")
@@ -143,16 +179,24 @@ class FocusCard(Card):
         node = self.service.require_node(self.node_id)
         next_action = node.next_action.strip()
         self._title.setText(node.name)
-        self._chip.set_status(node.status)
+        self._chip.setText(node.status.value)
+        self._chip.setStyleSheet(
+            f"color: {theme.STATUS_STYLE[node.status.value][0]}; font-size: 11px;"
+        )
         self._path.setText(self.service.path_text(self.node_id))
         self._action.setText(f"下一步：{next_action}" if next_action else "下一步：尚未设置")
         self._action.setStyleSheet(
-            f"color: {theme.TEXT if next_action else theme.TEXT_SUBTLE}; font-size: 12px;"
+            f"color: {theme.TEXT if next_action else theme.TEXT_SUBTLE}; font-size: 13px;"
         )
 
 
 class OverviewHeatmapCard(Card):
-    """总览里的一张热力图：area_id 为 None 时表示「全部领域与进程」的总热力图。"""
+    """总览里的一张热力图：area_id 为 None 时表示「全部领域与进程」的总热力图。
+
+    两种形态：
+        - 总热力图：标题一行，右侧时钟，下面一张放大的日历；
+        - 领域热力图：左边一列写名字与统计，右边一张普通大小的日历（同一时间轴对齐）。
+    """
 
     def __init__(
         self,
@@ -162,50 +206,78 @@ class OverviewHeatmapCard(Card):
         *,
         scale: float = 1.0,
         on_changed=None,
+        show_labels: bool = True,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, name="PlainCard")
         self.service = service
         self.area_id = area_id
         self.total = area_id is None
         self._on_changed = on_changed
+        self.body.setContentsMargins(0, 0, 0, 0)
+        self.body.setSpacing(6)
 
-        header = QHBoxLayout()
-        header.setSpacing(8)
-        title = "总热力图 · 全部领域与进程" if self.total else service.require_node(area_id).name
-        name = QLabel(title)
-        name.setStyleSheet(f"font-size: {'18px' if self.total else '13px'}; font-weight: {'700' if self.total else '600'};")
-        header.addWidget(name)
-        if self.total:
-            header.addWidget(Subtle("全部领域与进程汇总，每条只算一次"))
-        header.addStretch(1)
-        self.stats_label = Muted("") if self.total else Subtle("")
-        self.stats_label.setWordWrap(False)
-        header.addWidget(self.stats_label)
-        self.body.addLayout(header)
-        if self.total:
-            self.body.addSpacing(2)
-
-        self.calendar = HeatmapCalendar(scale=scale, hot=self.total)
+        self.calendar = HeatmapCalendar(
+            scale=scale,
+            hot=self.total,
+            # 彩蛋：只在这张总热力图上把这一天涂成粉色
+            highlight_day="2026-10-15" if self.total else None,
+            show_labels=show_labels,
+        )
         self.calendar.dateClicked.connect(self._on_date_clicked)
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.addWidget(self.calendar)
-        if self.total:
-            # 时钟放在"热力图右边缘"与"卡片右边缘"之间的中间位置
-            self.clock_widget = BeijingClock()
-            row.addStretch(1)
-            row.addWidget(self.clock_widget, 0, Qt.AlignmentFlag.AlignVCenter)
-            row.addStretch(1)
-        else:
-            row.addStretch(1)
-        self.body.addLayout(row)
 
-        # 图例只在总热力图上留一个：下面每张领域热力图是同一套配色，不必重复
         if self.total:
+            header = QHBoxLayout()
+            header.setSpacing(12)
+            title = QLabel("总热力图")
+            title.setStyleSheet("font-size: 15px; font-weight: 600;")
+            header.addWidget(title)
+            header.addWidget(Subtle("全部领域与进程汇总 · 每条只算一次"))
+            header.addStretch(1)
+            self.stats_label = Muted("")
+            self.stats_label.setWordWrap(False)
+            header.addWidget(self.stats_label)
+            self.body.addLayout(header)
+
+            # 日历与图例放在同一列：图例贴住热力图的右缘，不贴卡片右缘
+            plot = QVBoxLayout()
+            plot.setContentsMargins(0, 0, 0, 0)
+            plot.setSpacing(8)
+            plot.addWidget(self.calendar, 0, Qt.AlignmentFlag.AlignLeft)
             legend_row = QHBoxLayout()
+            legend_row.setContentsMargins(0, 0, 0, 0)
             legend_row.addStretch(1)
             legend_row.addWidget(HeatmapLegend(scale=scale, hot=True))
-            self.body.addLayout(legend_row)
+            plot.addLayout(legend_row)
+
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 4, 0, 0)
+            row.addLayout(plot, 0)
+            row.addStretch(1)
+            self.clock_widget = BeijingClock(time_size=32)
+            row.addWidget(self.clock_widget, 0, Qt.AlignmentFlag.AlignTop)
+            self.body.addLayout(row)
+            return
+
+        # 领域行：左标签列 + 右日历
+        line = QHBoxLayout()
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(18)
+
+        side = QWidget()
+        side.setFixedWidth(112)
+        side_layout = QVBoxLayout(side)
+        side_layout.setContentsMargins(0, 0, 0, 0)
+        side_layout.setSpacing(2)
+        name = QLabel(self.service.require_node(area_id).name)
+        name.setStyleSheet("font-size: 13px; font-weight: 600;")
+        self.stats_label = Subtle("")
+        side_layout.addWidget(name)
+        side_layout.addWidget(self.stats_label)
+        side_layout.addStretch(1)
+        line.addWidget(side, 0, Qt.AlignmentFlag.AlignVCenter)
+        line.addWidget(self.calendar, 0, Qt.AlignmentFlag.AlignVCenter)
+        line.addStretch(1)
+        self.body.addLayout(line)
 
     def refresh(self) -> None:
         # 一直开着跨过午夜时，把窗口挪到今天
@@ -224,7 +296,10 @@ class OverviewHeatmapCard(Card):
             )
         self.calendar.set_data(counts, summaries)
         total, active_days = heatmap_stats.window_totals(counts)
-        self.stats_label.setText(f"近 {grid.weeks} 周 {total} 次 · {active_days} 天有记录")
+        if self.total:
+            self.stats_label.setText(f"近 {grid.weeks} 周 {total} 次 · {active_days} 天有记录")
+        else:
+            self.stats_label.setText(f"{total} 次 · {active_days} 天")
 
     def _on_date_clicked(self, day: str) -> None:
         if self.total:
@@ -278,96 +353,126 @@ class OverviewPage(QWidget):
         container = QWidget()
         scroll.setWidget(container)
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(20, 18, 20, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(24, 22, 24, 28)
+        layout.setSpacing(0)
 
-        # ---------------------------------------------------------- 当前重点
-        # 总热力图放在最上面，并且明显比下面的领域热力图更大
+        # ---------------------------------------------------------- 总热力图
         self._total_card = OverviewHeatmapCard(
-            # 总热力图保持放大尺寸（1.25 倍），时钟放在卡片最右侧
+            # 总热力图保持放大尺寸（1.25 倍），时钟在右上角
             self.service, None, scale=1.25, on_changed=self._on_activities_changed
         )
         layout.addWidget(self._total_card)
-
-        layout.addWidget(hline())
+        layout.addSpacing(SECTION_GAP)
 
         # ---------------------------------------------------------- 当前重点
         focus_header = QHBoxLayout()
+        focus_header.setSpacing(12)
         focus_header.addWidget(SectionHeader("当前重点"))
-        hue = Subtle("最多 3 个置顶节点；按住卡片拖动可调整顺序")
-        focus_header.addWidget(hue)
+        focus_header.addWidget(Subtle("最多 3 个置顶节点"))
         focus_header.addStretch(1)
         layout.addLayout(focus_header)
+        layout.addSpacing(INNER_GAP)
 
         self.focus_row = QHBoxLayout()
-        self.focus_row.setSpacing(12)
+        self.focus_row.setSpacing(0)
         layout.addLayout(self.focus_row)
 
         self.focus_empty = Muted(
             "还没有置顶的重点。到「进程树」里把正在推进的进程或线程置顶，这里就会显示它的状态与下一步行动。"
         )
         layout.addWidget(self.focus_empty)
-
-        layout.addWidget(hline())
+        layout.addSpacing(SECTION_GAP)
 
         # ---------------------------------------------------------- 快速记录
-        layout.addWidget(SectionHeader("快速记录"))
-        quick_card = Card()
-        quick_row = QHBoxLayout()
-        quick_row.setSpacing(10)
+        quick_header = QHBoxLayout()
+        quick_header.setSpacing(12)
+        quick_header.addWidget(SectionHeader("快速记录"))
+        quick_header.addWidget(Subtle("独立进展记一次活动"))
+        quick_header.addStretch(1)
+        layout.addLayout(quick_header)
+        layout.addSpacing(INNER_GAP)
+
         self.quick_combo = NodeComboBox()
-        quick_row.addWidget(self.quick_combo, 2)
         self.quick_date = QDateEdit()
         self.quick_date.setCalendarPopup(True)
         self.quick_date.setDisplayFormat("yyyy-MM-dd")
         self.quick_date.setDate(str_to_qdate(today_str()))
-        quick_row.addWidget(self.quick_date)
         self.quick_note = QLineEdit()
-        self.quick_note.setPlaceholderText("备注（可留空）")
+        self.quick_note.setPlaceholderText("可留空")
         self.quick_note.returnPressed.connect(self._on_quick_record)
-        quick_row.addWidget(self.quick_note, 3)
         self.quick_button = QPushButton("记录")
         self.quick_button.setObjectName("Primary")
+        self.quick_button.setFixedHeight(30)
+        self.quick_button.setMinimumWidth(72)
         self.quick_button.clicked.connect(self._on_quick_record)
-        quick_row.addWidget(self.quick_button)
-        quick_card.body.addLayout(quick_row)
-        quick_card.body.addWidget(
-            Subtle("每次独立进展记为一次活动，热力图按次数而非字数着色。")
-        )
-        layout.addWidget(quick_card)
 
-        layout.addWidget(hline())
+        quick_row = QHBoxLayout()
+        quick_row.setContentsMargins(0, 0, 0, 0)
+        quick_row.setSpacing(22)
+        quick_row.addWidget(self._underline("进程", self.quick_combo, 300))
+        quick_row.addWidget(self._underline("日期", self.quick_date, 172))
+        quick_row.addWidget(self._underline("备注", self.quick_note), 1)
+        quick_row.addWidget(self.quick_button, 0, Qt.AlignmentFlag.AlignBottom)
+        layout.addLayout(quick_row)
+        layout.addSpacing(10)
+        layout.addWidget(Subtle("热力图按次数着色，不按字数。"))
+        layout.addSpacing(SECTION_GAP)
 
         # -------------------------------------------------------- 领域热力图
         heatmap_header = QHBoxLayout()
+        heatmap_header.setSpacing(12)
         heatmap_header.addWidget(SectionHeader("领域热力图"))
+        heatmap_header.addWidget(Subtle("同一条时间轴，只换统计范围"))
         heatmap_header.addStretch(1)
-        more = QPushButton("到热力图页面查看全部进程")
+        more = QPushButton("在热力图页查看全部")
         more.setObjectName("Ghost")
         more.clicked.connect(lambda: self.openPageRequested.emit("heatmaps"))
         heatmap_header.addWidget(more)
         layout.addLayout(heatmap_header)
+        layout.addSpacing(INNER_GAP)
 
         self.heatmap_container = QVBoxLayout()
-        self.heatmap_container.setSpacing(14)
+        self.heatmap_container.setSpacing(INNER_GAP)
         layout.addLayout(self.heatmap_container)
-
-        layout.addWidget(hline())
+        layout.addSpacing(SECTION_GAP)
 
         # ---------------------------------------------------------- 最近活动
         recent_header = QHBoxLayout()
+        recent_header.setSpacing(12)
         recent_header.addWidget(SectionHeader("最近活动"))
         recent_header.addStretch(1)
         self.recent_count = Subtle("")
         recent_header.addWidget(self.recent_count)
         layout.addLayout(recent_header)
+        layout.addSpacing(INNER_GAP)
+
         self.recent_table = ActivityTable()
+        # 无框表：只有行、没有表头与网格；"记在哪"恒为线程/进程，删掉这一列
+        self.recent_table.setObjectName("BareTable")
+        self.recent_table.horizontalHeader().setVisible(False)
+        self.recent_table.setColumnHidden(2, True)
+        self.recent_table.ROW_HEIGHT = 32
         self.recent_table.load([], compact=True)
-        self.recent_table.setMinimumHeight(220)
         layout.addWidget(self.recent_table)
 
         layout.addStretch(1)
         self.refresh()
+
+    # ------------------------------------------------------------ 下划线字段
+    def _underline(self, label: str, widget: QWidget, width: int | None = None) -> QWidget:
+        """一个"只有下划线"的字段：左侧小号灰字，右侧无框控件。"""
+        frame = QFrame()
+        frame.setObjectName("Underline")
+        row = QHBoxLayout(frame)
+        row.setContentsMargins(0, 0, 0, 6)
+        row.setSpacing(8)
+        key = QLabel(label)
+        key.setObjectName("FieldKey")
+        row.addWidget(key)
+        row.addWidget(widget, 1)
+        if width is not None:
+            frame.setFixedWidth(width)
+        return frame
 
     # ---------------------------------------------------------------- 刷新
     def refresh(self) -> None:
@@ -394,6 +499,9 @@ class OverviewPage(QWidget):
         else:
             for card in self._focus_cards:
                 card.update_content()
+        # 第一张不画竖线，其余每张画（重排后也要跟着更新）
+        for index, card in enumerate(self._focus_cards):
+            card.set_divider(index > 0)
         self.focus_empty.setVisible(not focused)
 
     # ------------------------------------------------- 当前重点的显示顺序
@@ -447,6 +555,7 @@ class OverviewPage(QWidget):
             self.focus_row.removeWidget(card)
         for index, card in enumerate(self._focus_cards):
             self.focus_row.insertWidget(index, card, 1)
+            card.set_divider(index > 0)
         if save:
             self._save_focus_order()
 
@@ -470,9 +579,15 @@ class OverviewPage(QWidget):
         if [card.area_id for card in self._area_cards] != [area.id for area in areas]:
             clear_layout(self.heatmap_container)
             self._area_cards = []
-            for area in areas:
+            for index, area in enumerate(areas):
                 card = OverviewHeatmapCard(
-                    self.service, area.id, on_changed=self._on_activities_changed
+                    self.service,
+                    area.id,
+                    # 领域图比总热力图小一号：三行叠起来不至于把页面拉得太长
+                    scale=0.9,
+                    on_changed=self._on_activities_changed,
+                    # 只有第一行画月份/星期标记：下面的行与它严格对齐，省掉重复标签
+                    show_labels=index == 0,
                 )
                 self._area_cards.append(card)
                 self.heatmap_container.addWidget(card)

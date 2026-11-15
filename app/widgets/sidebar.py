@@ -1,16 +1,16 @@
 """左侧导航（可收起）。
 
-六个导航按钮是**彼此独立的圆角矩形**（白底 + 1px 浅边框，选中时浅蓝底 + 蓝边 + 蓝字），
-整组垂直居中在左栏中间；「数据」样式相同，固定在左栏最下面。
-快捷键不再显示在界面上，但功能仍然保留（注册在 main_window 里）。
+导航是**文字列表**，不是一列按钮：没有底色、没有边框，只有一条 1px 竖线把左栏和内容分开。
+选中项用左侧 2px 竖条 + 加粗表示，因此一屏里只有一个「重」元素。
+收起后由顶栏的切换按钮重新展开；快捷键不在界面上展示，但功能保留（注册在 main_window 里）。
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (
     QButtonGroup,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -39,39 +39,39 @@ BOTTOM_ITEMS: tuple[tuple[str, str, str], ...] = (
 
 ALL_NAV_ITEMS: tuple[tuple[str, str, str], ...] = NAV_ITEMS + BOTTOM_ITEMS
 
+# 导航项高度：32px 是"文字列表"的节奏，不再是 44px 的按钮
+NAV_HEIGHT = 32
+# 选中态的竖条：宽度与上下内缩
+BAR_WIDTH = 2
+BAR_INSET = 6
+
 
 class NavButton(QPushButton):
-    """一个导航按钮：名称居中；样式（圆角、边框、选中态）见 theme.stylesheet()。"""
+    """导航项：左对齐的文字；选中时自己在左侧画一条竖条。
+
+    Qt 的样式表画不了「只在选中时出现的竖条」，所以在 paintEvent 里补两笔。
+    """
 
     def __init__(self, label: str, shortcut: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__(label, parent)
         self.setObjectName("NavButton")
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setMinimumHeight(44)
-
-        row = QHBoxLayout(self)
-        row.setContentsMargins(14, 10, 14, 10)
-        row.setSpacing(8)
-        self.label = QLabel(label)
-        self.label.setObjectName("NavLabel")
-        row.addStretch(1)
-        row.addWidget(self.label)
-        row.addStretch(1)
+        self.setFixedHeight(NAV_HEIGHT)
+        self.setFlat(True)
         # 快捷键不再显示在界面上（功能保留，注册在 main_window 里）
         self.shortcut_text = shortcut
-        # 选中状态的文字颜色在代码里切换：
-        # Qt 的样式表对「后代选择器 + 伪状态」（如 #NavButton:checked #NavLabel）支持不可靠，
-        # 写成那样会让所有条目都套用选中样式。
-        self.toggled.connect(self._sync_label_style)
-        self._sync_label_style(False)
 
-    def _sync_label_style(self, checked: bool) -> None:
-        color = theme.ACCENT if checked else theme.TEXT
-        weight = 600 if checked else 500
-        self.label.setStyleSheet(
-            f"color: {color}; font-size: 14px; font-weight: {weight}; background: transparent;"
-        )
+    def paintEvent(self, event) -> None:  # pragma: no cover - 需要 GUI
+        super().paintEvent(event)
+        if not self.isChecked():
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(theme.ACCENT))
+        painter.drawRoundedRect(0, BAR_INSET, BAR_WIDTH, self.height() - BAR_INSET * 2, 1, 1)
+        painter.end()
 
 
 class SloganLabel(QLabel):
@@ -95,19 +95,17 @@ class SloganLabel(QLabel):
 
 
 class Sidebar(QWidget):
-    """极简导航：支持整体收起，收起后由顶栏的切换按钮重新展开。"""
+    """极简导航：一条竖线 + 一列文字。支持整体收起。"""
 
     pageSelected = Signal(str)
     sloganEditRequested = Signal()
     themeRequested = Signal(str)
 
-    WIDTH = 248
-    # 间距分三档：组内最紧、两组之间一档、与总览 / 与日记最大
-    BUTTON_GAP = 8
-    GROUP_GAP = 18
-    HOME_GAP = 26
+    WIDTH = 206
+    # 分三档：组内 2px、两组之间 16px、标语与导航之间 22px
+    BUTTON_GAP = 2
+    GROUP_GAP = 16
     TOP_GAP = 22
-    BOTTOM_GAP = 6
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -115,7 +113,7 @@ class Sidebar(QWidget):
         self.setFixedWidth(self.WIDTH)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 18, 16, 16)
+        layout.setContentsMargins(20, 26, 20, 20)
         layout.setSpacing(0)
 
         title = QLabel("Key Actions")
@@ -125,8 +123,9 @@ class Sidebar(QWidget):
         subtitle.setWordWrap(True)
         layout.addWidget(title)
         layout.addWidget(subtitle)
+
         # 标语和标题之间留出更多空白：原来贴着标题显得太靠上
-        layout.addSpacing(30)
+        layout.addSpacing(26)
         self._slogan_text = ""
         self.slogan_label = SloganLabel()
         self.slogan_label.editRequested.connect(self.sloganEditRequested.emit)
@@ -137,49 +136,46 @@ class Sidebar(QWidget):
         self._group.setExclusive(True)
         self.buttons: dict[str, QPushButton] = {}
 
-        # 总览紧贴在标语下方（比原来"整组居中"的位置更靠上）
         layout.addSpacing(self.TOP_GAP)
         for index, (key, label, shortcut) in enumerate(NAV_ITEMS):
             if key == "heatmaps":
-                layout.addSpacing(self.HOME_GAP)   # 与总览的距离：最大一档
-            elif key == "processes":
-                layout.addSpacing(self.GROUP_GAP)  # 两组之间：小一档
+                layout.addSpacing(self.GROUP_GAP)   # 核心三页 / 三个视图 之间的分界
             elif index:
                 layout.addSpacing(self.BUTTON_GAP)
             self._add_button(layout, key, label, shortcut)
 
-        # 剩下的空白全部留在下面：日记与数据贴着底部
+        # 剩下的空白全部留在下面：日记、数据、设置贴着底部
         layout.addStretch(1)
         for index, (key, label, shortcut) in enumerate(BOTTOM_ITEMS):
             if index:
-                layout.addSpacing(self.BOTTOM_GAP)
+                layout.addSpacing(self.BUTTON_GAP)
             self._add_button(layout, key, label, shortcut)
 
-        # 最底下：配色切换（两个小段，选中的那个是当前主题）
-        layout.addSpacing(10)
-        segment = QFrame()
-        segment.setObjectName("ThemeSeg")
-        segment_layout = QHBoxLayout(segment)
-        segment_layout.setContentsMargins(3, 3, 3, 3)
-        segment_layout.setSpacing(3)
+        # 最底下：配色切换（两个文字项，当前那个加粗）
+        theme_row = QHBoxLayout()
+        theme_row.setContentsMargins(2, 0, 0, 0)
+        theme_row.setSpacing(14)
         self.theme_buttons: dict[str, QPushButton] = {}
         for key in ("light", "dark"):
             button = QPushButton(theme.THEME_LABELS[key])
-            button.setObjectName("ThemeButton")
+            button.setObjectName("ThemeText")
             button.setCheckable(True)
+            button.setFlat(True)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.clicked.connect(
                 lambda _checked=False, name=key: self.themeRequested.emit(name)
             )
-            segment_layout.addWidget(button)
+            theme_row.addWidget(button)
             self.theme_buttons[key] = button
-        layout.addWidget(segment)
+        theme_row.addStretch(1)
+        layout.addSpacing(12)
+        layout.addLayout(theme_row)
         self.set_theme(theme.current_theme())
 
         self.set_current("overview")
 
     def set_theme(self, name: str) -> None:
-        """把当前主题那一小段标成选中。"""
+        """把当前主题那一项标成选中。"""
         for key, button in self.theme_buttons.items():
             button.setChecked(key == name)
 
@@ -195,7 +191,7 @@ class Sidebar(QWidget):
             self.slogan_label.setText("双击这里写一句标语")
             color = theme.TEXT_SUBTLE
         self.slogan_label.setStyleSheet(
-            f"color: {color}; font-size: 12px; background: transparent;"
+            f"color: {color}; font-size: 12px; background: transparent; line-height: 150%;"
         )
 
     def slogan_text(self) -> str:

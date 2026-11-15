@@ -23,6 +23,7 @@ LIGHT: dict[str, object] = {
     "SURFACE_ALT": "#eef1f4",
     "BORDER": "#d0d7de",
     "BORDER_MUTED": "#e4e8ec",
+    "HAIRLINE": "#e7ebef",
     "TEXT": "#1f2328",
     "TEXT_MUTED": "#656d76",
     "TEXT_SUBTLE": "#8b949e",
@@ -30,8 +31,8 @@ LIGHT: dict[str, object] = {
     "ACCENT_SOFT": "#ddf4ff",
     "ACCENT_HOVER": "#0860ca",
     "DANGER": "#cf222e",
-    "PAGE_BG": "#f6f8fa",
-    "SIDEBAR_BG": "#eef1f4",
+    "PAGE_BG": "#ffffff",
+    "SIDEBAR_BG": "#ffffff",
     "BUTTON_PRESSED": "#e6eaee",
     "TOOLTIP_BG": "#24292f",
     "TOOLTIP_TEXT": "#ffffff",
@@ -47,6 +48,8 @@ LIGHT: dict[str, object] = {
     # 总热力图专用的两套 1~5 级：1–5 次绿色，6–10 次橙色
     "GLOBAL_GREEN": ("#9be9a8", "#40c463", "#30a14e", "#216e39", "#0e4429"),
     "GLOBAL_ORANGE": ("#ffd8a8", "#ffb86c", "#f0883e", "#d9651a", "#a33d0a"),
+    # 彩蛋：总热力图上某一天的特殊颜色
+    "EASTER_PINK": "#ff6fae",
     "EMPTY_CELL_BORDER": "#d8dee4",
     "MAP_PALETTE": ("#0969da", "#8250df", "#bf8700", "#1a7f37", "#0e7490", "#cf222e"),
     "STATUS_STYLE": {
@@ -65,6 +68,7 @@ DARK: dict[str, object] = {
     "SURFACE_ALT": "#30363d",
     "BORDER": "#30363d",
     "BORDER_MUTED": "#21262d",
+    "HAIRLINE": "#30363d",
     "TEXT": "#e6edf3",
     "TEXT_MUTED": "#9198a1",
     "TEXT_SUBTLE": "#7d8590",
@@ -86,9 +90,10 @@ DARK: dict[str, object] = {
     "TODAY_DOT": "#3fb950",
     "PINNED": "#d29922",
     # 空格要"比页面底色亮一点点"：这样它是有形状的格子，而不是只剩描边的空框
-    "LEVEL_COLORS": ("#1b2028", "#033a16", "#196c2e", "#2ea043", "#56d364"),
+    "LEVEL_COLORS": ("#141922", "#033a16", "#196c2e", "#2ea043", "#56d364"),
     "GLOBAL_GREEN": ("#033a16", "#196c2e", "#2ea043", "#56d364", "#7ee787"),
     "GLOBAL_ORANGE": ("#5a2c08", "#8a4a12", "#c26a1c", "#f0883e", "#ffb86c"),
+    "EASTER_PINK": "#ff8fc7",
     # 描边与空格同色：深色下不再画出一片网格轮廓
     "EMPTY_CELL_BORDER": "#1b2028",
     "MAP_PALETTE": ("#4493f8", "#a371f7", "#d29922", "#3fb950", "#39c5cf", "#f85149"),
@@ -111,6 +116,7 @@ SURFACE = LIGHT["SURFACE"]
 SURFACE_ALT = LIGHT["SURFACE_ALT"]
 BORDER = LIGHT["BORDER"]
 BORDER_MUTED = LIGHT["BORDER_MUTED"]
+HAIRLINE = LIGHT["HAIRLINE"]
 TEXT = LIGHT["TEXT"]
 TEXT_MUTED = LIGHT["TEXT_MUTED"]
 TEXT_SUBTLE = LIGHT["TEXT_SUBTLE"]
@@ -134,6 +140,7 @@ PINNED = LIGHT["PINNED"]
 LEVEL_COLORS = LIGHT["LEVEL_COLORS"]
 GLOBAL_GREEN = LIGHT["GLOBAL_GREEN"]
 GLOBAL_ORANGE = LIGHT["GLOBAL_ORANGE"]
+EASTER_PINK = LIGHT["EASTER_PINK"]
 EMPTY_CELL_BORDER = LIGHT["EMPTY_CELL_BORDER"]
 MAP_PALETTE = LIGHT["MAP_PALETTE"]
 STATUS_STYLE = LIGHT["STATUS_STYLE"]
@@ -245,19 +252,27 @@ def stylesheet() -> str:
     }}
 
     /* ---------------------------------------------------- 侧边导航 */
+    /* 左栏只有一条竖线：导航是文字列表，不是一列按钮 */
     #Sidebar {{ background: {SIDEBAR_BG}; border-right: 1px solid {BORDER_MUTED}; }}
-    #SidebarTitle {{ color: {TEXT}; font-size: 16px; font-weight: 600; }}
+    #SidebarTitle {{ color: {TEXT}; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }}
     #SidebarSubtitle {{ color: {TEXT_SUBTLE}; font-size: 11px; }}
-    /* 每个导航按钮是独立的圆角矩形，不再包在一个分组框里 */
     #NavButton {{
-        text-align: center;
-        background: {BG};
-        border: 1px solid {BORDER_MUTED};
-        border-radius: 10px;
-        padding: 0;
+        text-align: left;
+        background: transparent;
+        border: none;
+        padding: 0 0 0 12px;
+        color: {TEXT_MUTED};
+        font-size: 13px;
     }}
-    #NavButton:hover {{ background: {SURFACE}; border-color: {BORDER}; }}
-    #NavButton:checked {{ background: {ACCENT_SOFT}; border-color: {ACCENT}; }}
+    #NavButton:hover {{ color: {TEXT}; }}
+    #NavButton:checked {{ color: {TEXT}; font-weight: 600; }}
+    /* 主题切换：两个文字项，当前那个加粗 */
+    #ThemeText {{
+        background: transparent; border: none; padding: 0;
+        color: {TEXT_SUBTLE}; font-size: 12px; text-align: left;
+    }}
+    #ThemeText:hover {{ color: {TEXT}; }}
+    #ThemeText:checked {{ color: {TEXT}; font-weight: 600; }}
     /* 主题切换：两个小段，选中那个是当前主题 */
     #ThemeSeg {{
         background: {BG};
@@ -273,20 +288,32 @@ def stylesheet() -> str:
 
     /* -------------------------------------------------------- 顶栏 */
     #TopBar {{ background: {BG}; border-bottom: 1px solid {BORDER_MUTED}; }}
-    #PageTitle {{ font-size: 15px; font-weight: 600; }}
+    #PageTitle {{ font-size: 20px; font-weight: 600; letter-spacing: 0.3px; }}
+    #PageSubtitle {{ color: {TEXT_SUBTLE}; font-size: 12px; }}
+    /* 顶栏与总览里的圆形按钮 */
+    #Pill {{
+        background: {BG}; border: 1px solid {BORDER_MUTED}; border-radius: 16px;
+        padding: 0 16px; color: {TEXT}; font-size: 13px;
+    }}
+    #Pill:hover {{ border-color: {BORDER}; color: {TEXT}; }}
+    #PillPrimary {{
+        background: {ACCENT}; border: 1px solid {ACCENT}; border-radius: 16px;
+        padding: 0 18px; color: #ffffff; font-size: 13px; font-weight: 500;
+    }}
+    #PillPrimary:hover {{ background: {ACCENT_HOVER}; border-color: {ACCENT_HOVER}; }}
+    #Pill:disabled {{ color: {DISABLED_FG}; border-color: {BORDER_MUTED}; }}
 
     /* -------------------------------------------------------- 卡片 */
     #Card {{
         background: {BG};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
+        border: 1px solid {BORDER_MUTED};
+        border-radius: 10px;
     }}
-    #FocusCard {{
-        background: {BG};
-        border: 1px solid {BORDER};
-        border-radius: 8px;
-    }}
-    #SectionHeader {{ color: {TEXT}; font-size: 13px; font-weight: 600; }}
+    /* 无框区块：总览里的热力图与快速记录都不画卡片框 */
+    #PlainCard {{ background: transparent; border: none; border-radius: 0; }}
+    /* 当前重点不画框，只靠竖细线分隔（线由 FocusCard 自己画） */
+    #FocusCard {{ background: transparent; border: none; border-radius: 0; }}
+    #SectionHeader {{ color: {TEXT}; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }}
     #Muted {{ color: {TEXT_MUTED}; font-size: 12px; }}
     #Subtle {{ color: {TEXT_SUBTLE}; font-size: 11px; }}
     #Mono {{ font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; color: {TEXT_MUTED}; }}
@@ -294,8 +321,8 @@ def stylesheet() -> str:
     /* -------------------------------------------------------- 按钮 */
     QPushButton {{
         background: {BG};
-        border: 1px solid {BORDER};
-        border-radius: 6px;
+        border: 1px solid {BORDER_MUTED};
+        border-radius: 8px;
         padding: 5px 12px;
         color: {TEXT};
     }}
@@ -304,6 +331,14 @@ def stylesheet() -> str:
     QPushButton:disabled {{ color: {DISABLED_FG}; background: {SURFACE}; border-color: {BORDER_MUTED}; }}
     QPushButton#Primary {{ background: {ACCENT}; border-color: {ACCENT}; color: #ffffff; font-weight: 600; }}
     QPushButton#Primary:hover {{ background: {ACCENT_HOVER}; border-color: {ACCENT_HOVER}; }}
+    /* AI 页与设置页一直用的是这个名字，之前样式表里没定义，主按钮其实是白底。
+       这里给它和 #Primary 一样的待遇：一个页面只有一个蓝色按钮。 */
+    QPushButton#PrimaryButton {{
+        background: {ACCENT}; border: 1px solid {ACCENT}; color: #ffffff; font-weight: 600;
+        border-radius: 8px; padding: 5px 14px;
+    }}
+    QPushButton#PrimaryButton:hover {{ background: {ACCENT_HOVER}; border-color: {ACCENT_HOVER}; }}
+    QPushButton#PrimaryButton:disabled {{ color: #ffffff; background: {BORDER}; border-color: {BORDER}; }}
     QPushButton#Ghost {{ background: transparent; border: none; color: {ACCENT}; padding: 3px 6px; }}
     QPushButton#Ghost:hover {{ background: {ACCENT_SOFT}; border-radius: 6px; }}
     QPushButton#Collapse {{
@@ -336,6 +371,20 @@ def stylesheet() -> str:
     }}
     QCheckBox {{ color: {TEXT_MUTED}; spacing: 6px; }}
 
+    /* 总览「快速记录」：无框，只留一条下划线；字段名小一号的灰字 */
+    #Underline {{
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid {HAIRLINE};
+    }}
+    #Underline QComboBox, #Underline QDateEdit, #Underline QLineEdit {{
+        background: transparent;
+        border: none;
+        padding: 2px 0;
+        min-height: 22px;
+    }}
+    #FieldKey {{ color: {TEXT_SUBTLE}; font-size: 11px; }}
+
     /* ----------------------------------------------------- 树与表 */
     QTreeWidget, QTableWidget, QListWidget {{
         background: {BG};
@@ -358,6 +407,14 @@ def stylesheet() -> str:
         font-weight: 600;
     }}
     QTableWidget {{ gridline-color: {BORDER_MUTED}; }}
+    /* 总览「最近活动」用无框表：只有行与行之间的细线 */
+    QTableWidget#BareTable {{
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        gridline-color: transparent;
+    }}
+    QTableWidget#BareTable::item {{ padding: 2px 4px; font-size: 12px; }}
 
     /* ----------------------------------------------------- 滚动条 */
     QScrollBar:vertical {{ background: transparent; width: 10px; margin: 0; }}

@@ -88,8 +88,8 @@ class UiSmokeTest(unittest.TestCase):
             )
             return sidebar.buttons[lower].mapTo(sidebar, QPoint(0, 0)).y() - bottom
 
-        inside = gap("heatmaps", "mindmap")       # 组内
-        between = gap("mindmap", "processes")     # 两组之间
+        inside = gap("heatmaps", "mindmap")       # 组内（视图组）
+        between = gap("ai", "heatmaps")           # 两组之间：核心组 / 视图组
         from_home = gap("overview", "heatmaps")   # 与总览
         self.assertLess(inside, between)
         self.assertLessEqual(between, from_home)
@@ -436,13 +436,16 @@ class UiSmokeTest(unittest.TestCase):
         self.assertTrue(opened)
         self.assertIsInstance(opened[0], QuickCaptureDialog)
 
-    def test_sidebar_buttons_are_large_and_hide_shortcuts(self) -> None:
+    def test_sidebar_nav_items_are_compact_text_rows(self) -> None:
+        """导航是文字列表：32px 一行、文字直接写在按钮上、快捷键不展示。"""
         from PySide6.QtGui import QShortcut
 
         sidebar = self.window.sidebar
         self.assertEqual(len(sidebar.buttons), 9)
         for button in sidebar.buttons.values():
-            self.assertGreaterEqual(button.minimumHeight(), 44, "按钮太小，不好点击")
+            self.assertGreaterEqual(button.height(), 30, "行高太小，不好点")
+            self.assertLessEqual(button.height(), 36, "行高太大，又变回一列大按钮了")
+            self.assertTrue(button.text(), "导航项要有文字")
             self.assertFalse(hasattr(button, "hint"), "快捷键文字应该已经移除")
             self.assertTrue(button.shortcut_text.startswith("Ctrl+"))
         # 快捷键功能保留（只是不再显示在界面上）
@@ -1309,7 +1312,7 @@ class UiSmokeTest(unittest.TestCase):
         self.assertEqual(widget.zone_label.text(), clock.BEIJING_LABEL)
         # 字号要大（之前 24px 被嫌小）
         self.assertGreaterEqual(widget.time_size, 32, "时钟字号太小")
-        # 时钟在热力图右边，且（窗口够宽时）居中在"热力图右边"与"卡片右边"之间
+        # 时钟在热力图右边，贴着卡片右边缘（纸面版式：标题左、时间右）
         calendar_right = card.calendar.mapTo(card, card.calendar.rect().topRight()).x()
         clock_left = widget.mapTo(card, widget.rect().topLeft()).x()
         self.assertGreater(clock_left, calendar_right, "时钟应该在热力图右侧")
@@ -1321,9 +1324,7 @@ class UiSmokeTest(unittest.TestCase):
         left_gap = clock_left - calendar_right
         right_gap = card.width() - clock_right
         self.assertGreater(left_gap, 20, "时钟离热力图太近")
-        self.assertLess(
-            abs(left_gap - right_gap), 40, f"时钟没有居中：左 {left_gap} 右 {right_gap}"
-        )
+        self.assertLess(right_gap, 40, f"时钟没有贴右边缘：右 {right_gap}")
         # 总热力图保持放大尺寸，不因为放时钟而缩小
         self.assertGreaterEqual(card.calendar.width(), 940, "总热力图被改小了")
         # 领域热力图不带时钟（只有总热力图那块空白需要）
@@ -2405,7 +2406,7 @@ class UiSmokeTest(unittest.TestCase):
     def test_mindmap_page_is_labelled_thought_map(self) -> None:
         """侧栏和页面标题都叫「思维导图」（快捷键 Ctrl+3 不变）。"""
         button = self.window.sidebar.buttons["mindmap"]
-        self.assertEqual(button.label.text(), "思维导图")
+        self.assertEqual(button.text(), "思维导图")
         self.assertEqual(button.shortcut_text, "Ctrl+3")
         self.window.set_page("mindmap")
         self.app.processEvents()
@@ -2667,6 +2668,38 @@ class UiSmokeTest(unittest.TestCase):
         single = HeatmapLegend(scale=legend._scale)
         self.assertFalse(single._hot)
         self.assertGreater(legend.height(), single.height(), "两行图例应该比单行更高")
+
+    def test_overview_easter_egg_day_is_pink(self) -> None:
+        """彩蛋：只有总览的总热力图里，2026-10-15 这一格是粉色。"""
+        from app import theme
+
+        page = self.window.pages["overview"]
+        self.window.resize(1560, 980)
+        self.window.show()
+        self.window.set_page("overview")
+        for _ in range(10):
+            self.app.processEvents()
+
+        calendar = page._total_card.calendar
+        self.assertEqual(calendar._highlight_day, "2026-10-15")
+        if page._area_cards:
+            self.assertIsNone(page._area_cards[0].calendar._highlight_day)
+
+        position = None
+        for column, days in enumerate(calendar.grid.columns):
+            for row, day in enumerate(days):
+                if day == "2026-10-15":
+                    position = (column, row)
+        self.assertIsNotNone(position, "日历里没有 2026-10-15 这一格")
+
+        rect = calendar._cell_rect(*position)
+        image = calendar.grab().toImage()
+        sx = image.width() / calendar.width()
+        sy = image.height() / calendar.height()
+        color = image.pixelColor(
+            int(rect.center().x() * sx), int(rect.center().y() * sy)
+        ).name()
+        self.assertEqual(color, theme.EASTER_PINK)
 
     def test_sidebar_puts_ai_under_overview_and_settings_at_bottom(self) -> None:
         """左栏：AI 紧跟在总览下面；设置在最底部（数据之后）。"""

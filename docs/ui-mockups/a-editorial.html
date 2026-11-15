@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>A · 纸面极简</title>
+<style>
+  :root{
+    --bg:#ffffff; --text:#1f2328; --muted:#656d76; --subtle:#8b949e;
+    --line:#e7ebef; --accent:#0969da;
+    --g0:#f1f3f5; --g1:#9be9a8; --g2:#40c463; --g3:#30a14e; --g4:#216e39;
+    --o1:#ffe3b8; --o2:#ffc078; --o3:#f0883e; --o4:#c8580f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:"Microsoft YaHei UI","Segoe UI",sans-serif;font-size:13px;color:var(--text);
+       background:var(--bg);-webkit-font-smoothing:antialiased;}
+  .win{display:flex;width:1560px;height:980px;}
+  /* ---------------------------------------------------- 侧栏：只有一条线 */
+  .side{width:206px;flex:none;padding:26px 20px 20px;border-right:1px solid var(--line);
+        display:flex;flex-direction:column;}
+  .brand{font-size:14px;font-weight:600;letter-spacing:.2px;}
+  .ver{font-size:11px;color:var(--subtle);margin-top:3px;}
+  .slogan{font-size:12px;color:var(--muted);margin:26px 0 22px;line-height:1.5;}
+  .nav{display:flex;flex-direction:column;gap:2px;}
+  .nav a{display:flex;align-items:center;height:32px;padding-left:12px;margin-left:-12px;
+         color:var(--muted);text-decoration:none;position:relative;}
+  .nav a.on{color:var(--text);font-weight:600;}
+  .nav a.on::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;
+    background:var(--accent);border-radius:1px;}
+  .nav .gap{height:16px;}
+  .side .sp{flex:1;}
+  .theme{display:flex;gap:14px;font-size:12px;color:var(--subtle);padding-top:10px;}
+  .theme b{color:var(--text);font-weight:600;}
+  /* ---------------------------------------------------------- 顶栏 */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .top{height:66px;flex:none;display:flex;align-items:center;padding:0 30px;border-bottom:1px solid var(--line);}
+  .top h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.3px;}
+  .top .sub{font-size:12px;color:var(--subtle);margin-left:12px;}
+  .top .sp{flex:1;}
+  .btn{height:32px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+       background:#fff;color:var(--text);font-size:13px;}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500;padding:0 18px;}
+  .btn.sm{height:28px;padding:0 14px;font-size:12px;}
+  .body{padding:0 30px 30px;}
+  .sec{margin-top:32px;}
+  .sec:first-child{margin-top:24px;}
+  .sh{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;}
+  .sh h2{font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .sh .note{font-size:12px;color:var(--subtle);}
+  .sh .sp{flex:1;}
+  .sh .r{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .link{color:var(--accent);text-decoration:none;font-size:12px;}
+  /* ------------------------------------------------------- 热力图 */
+  .hm{display:flex;gap:26px;}
+  .plot{flex:1;min-width:0;}
+  .months{display:grid;grid-template-columns:repeat(53,13px);gap:3px;font-size:11px;
+          color:var(--subtle);margin-bottom:7px;}
+  .months span{grid-column:span 4;white-space:nowrap;}
+  .months span:last-child{grid-column:span 5;}
+  .gridwrap{display:flex;gap:10px;}
+  .wl{display:grid;grid-template-rows:repeat(7,13px);gap:3px;font-size:10px;color:var(--subtle);}
+  .wl span{line-height:13px;width:22px;text-align:right;}
+  .grid{display:grid;grid-auto-flow:column;grid-template-columns:repeat(53,13px);grid-template-rows:repeat(7,13px);gap:3px;}
+  .cell{width:13px;height:13px;border-radius:2px;background:var(--g0);}
+  /* 领域用小一号格子（一行放两个） */
+  .grid.g8{grid-template-columns:repeat(53,9px);grid-template-rows:repeat(7,9px);gap:2px;}
+  .grid.g8 .cell{width:9px;height:9px;border-radius:2px;}
+  .wl.g8{grid-template-rows:repeat(7,8px);gap:2px;font-size:9px;}
+  .wl.g8 span{line-height:8px;width:18px;}
+  .clock{width:190px;flex:none;text-align:right;padding-top:2px;}
+  .clock .t{font-size:32px;font-weight:300;letter-spacing:1px;font-variant-numeric:tabular-nums;}
+  .clock .d{font-size:12px;color:var(--muted);margin-top:6px;}
+  .clock .tz{font-size:11px;color:var(--subtle);margin-top:3px;}
+  .legend{display:flex;justify-content:flex-end;gap:16px;font-size:11px;color:var(--subtle);
+          margin-top:14px;font-variant-numeric:tabular-nums;}
+  .legend .row{display:flex;align-items:center;gap:3px;}
+  .sw{width:11px;height:11px;border-radius:2px;}
+  .swl{display:flex;gap:3px;margin-right:6px;}
+  /* ------------------------------------------------------ 当前重点：三栏，竖线分隔 */
+  .focus{display:grid;grid-template-columns:1fr 1fr 1fr;}
+  .fcol{padding-right:26px;}
+  .fcol + .fcol{border-left:1px solid var(--line);padding-left:26px;}
+  .ft{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .ft .name{font-size:14px;font-weight:600;}
+  .badge{font-size:11px;color:var(--accent);}
+  .fpath{font-size:12px;color:var(--subtle);margin-bottom:10px;}
+  .fnext{font-size:13px;color:var(--muted);margin-bottom:14px;}
+  .fnext em{font-style:normal;color:var(--text);}
+  .fbtns{display:flex;align-items:center;gap:14px;}
+  /* ------------------------------------------------ 快速记录：无框下划线 */
+  .qr{display:flex;align-items:center;gap:22px;padding-bottom:2px;}
+  .field{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:0 0 6px;}
+  .field .k{font-size:11px;color:var(--subtle);}
+  .field .v{font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;}
+  .qr .sp{flex:1;}
+  .hint{font-size:11px;color:var(--subtle);margin-top:10px;}
+  /* ------------------------------------------------------ 今日记录列表 */
+  .list{border-top:1px solid var(--line);}
+  .item{display:flex;align-items:center;gap:16px;height:34px;border-bottom:1px solid var(--line);
+        font-variant-numeric:tabular-nums;}
+  .item .t{width:44px;color:var(--subtle);font-size:12px;}
+  .item .p{width:150px;color:var(--text);font-size:12px;}
+  .item .m{color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+<div class="win">
+  <!-- ==================================== 侧栏 -->
+  <aside class="side">
+    <div class="brand">Key Actions</div>
+    <div class="ver">v1.42.0 · 本地单机</div>
+    <div class="slogan">一次只推进一件事</div>
+
+    <nav class="nav">
+      <a class="on">总览</a>
+      <a>AI</a>
+      <div class="gap"></div>
+      <a>热力图</a>
+      <a>思维导图</a>
+      <a>进程树</a>
+      <a>活动记录</a>
+    </nav>
+
+    <div class="sp"></div>
+    <nav class="nav">
+      <a>日记</a>
+      <a>数据</a>
+      <a>设置</a>
+    </nav>
+    <div class="theme"><b>浅色</b><span>深色</span></div>
+  </aside>
+
+  <!-- ==================================== 主区 -->
+  <main class="main">
+    <header class="top">
+      <h1>总览</h1>
+      <div class="sub">今天已经记了 5 次</div>
+      <div class="sp"></div>
+      <button class="btn">快速记录 Ctrl+N</button>
+      <div style="width:8px"></div>
+      <button class="btn pri">记录活动</button>
+    </header>
+
+    <div class="body">
+      <!-- 总热力图 -->
+      <section class="sec">
+        <div class="sh">
+          <h2>总热力图</h2>
+          <div class="note">全部领域与进程汇总 · 每条只算一次</div>
+          <div class="sp"></div>
+          <div class="r">近 52 周 669 次 · 176 天有记录</div>
+        </div>
+        <div class="hm">
+          <div class="plot">
+            <div class="months" id="m1"></div>
+            <div class="gridwrap">
+              <div class="wl"><span>周一</span><span></span><span>周三</span><span></span><span>周五</span><span></span><span></span></div>
+              <div class="grid" id="g1"></div>
+            </div>
+            <div class="legend">
+              <div class="row"><span>1–5</span><div class="swl"><i class="sw" style="background:var(--g1)"></i><i class="sw" style="background:var(--g2)"></i><i class="sw" style="background:var(--g3)"></i><i class="sw" style="background:var(--g4)"></i></div></div>
+              <div class="row"><span>6–10</span><div class="swl"><i class="sw" style="background:var(--o1)"></i><i class="sw" style="background:var(--o2)"></i><i class="sw" style="background:var(--o3)"></i><i class="sw" style="background:var(--o4)"></i></div></div>
+            </div>
+          </div>
+          <div class="clock">
+            <div class="t">23:38</div>
+            <div class="d">2026年11月11日 星期三</div>
+            <div class="tz">北京时间</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 当前重点 -->
+      <section class="sec">
+        <div class="sh">
+          <h2>当前重点</h2>
+          <div class="note">最多 3 个置顶节点</div>
+          <div class="sp"></div>
+          <a class="link" href="#">调整顺序</a>
+        </div>
+        <div class="focus">
+          <div class="fcol">
+            <div class="ft"><span class="name">线程 2-1-2</span><span class="badge">进行中</span></div>
+            <div class="fpath">领域 2 → 进程 2-1 → 线程 2-1-2</div>
+            <div class="fnext">下一步：<em>本周完成三次</em></div>
+            <div class="fbtns"><button class="btn pri sm">记录活动</button><a class="link" href="#">详情</a></div>
+          </div>
+          <div class="fcol">
+            <div class="ft"><span class="name">线程 3-1-1</span><span class="badge">进行中</span></div>
+            <div class="fpath">领域 3 → 进程 3-1 → 线程 3-1-1</div>
+            <div class="fnext">下一步：<em>把当前这块做完</em></div>
+            <div class="fbtns"><button class="btn pri sm">记录活动</button><a class="link" href="#">详情</a></div>
+          </div>
+          <div class="fcol">
+            <div class="ft"><span class="name">线程 3-3-2</span><span class="badge">进行中</span></div>
+            <div class="fpath">领域 1 → 进程 1-4 → 线程 3-3-2</div>
+            <div class="fnext">下一步：<em>保持每周三次</em></div>
+            <div class="fbtns"><button class="btn pri sm">记录活动</button><a class="link" href="#">详情</a></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 快速记录 -->
+      <section class="sec">
+        <div class="sh"><h2>快速记录</h2><div class="note">独立进展记一次活动</div></div>
+        <div class="qr">
+          <div class="field" style="width:300px"><span class="k">进程</span><span class="v">进程 1-1</span><span style="margin-left:auto;color:var(--subtle)">▾</span></div>
+          <div class="field" style="width:150px"><span class="k">日期</span><span class="v">2026-11-11</span><span style="margin-left:auto;color:var(--subtle)">▾</span></div>
+          <div class="field" style="flex:1"><span class="k">备注</span><span class="v" style="color:var(--subtle)">可留空</span></div>
+          <button class="btn pri sm">记录</button>
+        </div>
+        <div class="hint">热力图按次数着色，不按字数。</div>
+      </section>
+
+      <!-- 领域热力图：一行放两个，格子小一号，月份标签交给上面的总热力图 -->
+      <section class="sec">
+        <div class="sh">
+          <h2>领域热力图</h2>
+          <div class="note">同一条时间轴，只换统计范围</div>
+          <div class="sp"></div>
+          <a class="link" href="#">在热力图页查看全部</a>
+        </div>
+        <div style="display:flex;gap:46px;">
+          <div>
+            <div class="sh" style="margin-bottom:9px"><div class="note" style="font-size:13px;color:var(--text);font-weight:600">领域 1</div><div class="sp"></div><div class="r">122 次 · 77 天</div></div>
+            <div class="gridwrap">
+              <div class="grid g8" id="g2"></div>
+            </div>
+          </div>
+          <div>
+            <div class="sh" style="margin-bottom:9px"><div class="note" style="font-size:13px;color:var(--text);font-weight:600">领域 2</div><div class="sp"></div><div class="r">248 次 · 111 天</div></div>
+            <div class="gridwrap">
+              <div class="grid g8" id="g3"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 今天记了什么 -->
+      <section class="sec">
+        <div class="sh">
+          <h2>今天</h2>
+          <div class="note">5 条 · 最早 09:12</div>
+          <div class="sp"></div>
+          <a class="link" href="#">全部记录</a>
+        </div>
+        <div class="list">
+          <div class="item"><span class="t">23:38</span><span class="p">线程 3-3-1</span><span class="m">对比了两个方案</span></div>
+          <div class="item"><span class="t">23:38</span><span class="p">线程 3-1-1</span><span class="m">修掉一个问题</span></div>
+          <div class="item"><span class="t">23:38</span><span class="p">线程 3-1-1</span><span class="m">搭好了骨架</span></div>
+          <div class="item"><span class="t">23:38</span><span class="p">线程 2-1-1</span><span class="m">确认了方向</span></div>
+          <div class="item"><span class="t">23:38</span><span class="p">线程 2-1-1</span><span class="m">准备好了材料</span></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+function rnd(seed){let s=seed;return()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};}
+const LV=["var(--g0)","var(--g1)","var(--g2)","var(--g3)","var(--g4)"];
+const OV=["var(--g0)","var(--o1)","var(--o2)","var(--o3)","var(--o4)"];
+function paint(id,cols,rows,seed,start,dense,useOrange){
+  const host=document.getElementById(id),r=rnd(seed);
+  for(let c=0;c<cols;c++){
+    const ramp=Math.min(1,(c-start)/9);
+    const base=(c<start)?0:Math.min(1,dense*(0.30+ramp*0.85)*(0.55+0.9*r()));
+    for(let x=0;x<rows;x++){
+      const d=document.createElement("div");d.className="cell";
+      const p=base*((x>=5)?0.45:1.1);          /* 周末淡一档 */
+      let lv=0;
+      if(p>0.03&&r()<p){
+        const q=r();                            /* 6–10 次是罕见的橙色 */
+        lv=q<0.38?1:q<0.70?2:q<0.93?3:4;
+      }
+      d.style.background=(useOrange&&lv>=4?OV:LV)[lv];
+      host.appendChild(d);
+    }
+  }
+}
+function months(id){
+  const host=document.getElementById(id),ms=["11月","12月","1月","2月","3月","4月","5月","6月","7月","8月","9月","10月"];
+  ms.forEach(m=>{const s=document.createElement("span");s.textContent=m;host.appendChild(s);});
+}
+paint("g1",53,7,7,19,0.85,true);
+paint("g2",53,7,11,24,0.55,false);
+paint("g3",53,7,23,23,0.72,false);
+months("m1");
+</script>
+</body>
+</html>

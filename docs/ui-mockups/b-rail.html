@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B · 图标轨仪表盘</title>
+<style>
+  :root{
+    --page:#f6f8fa; --card:#ffffff; --text:#1f2328; --muted:#656d76; --subtle:#8b949e;
+    --line:#e4e8ec; --accent:#0969da; --soft:#ddf4ff;
+    --g0:#eef1f4; --g1:#9be9a8; --g2:#40c463; --g3:#30a14e; --g4:#216e39;
+    --o1:#ffe3b8; --o2:#ffc078; --o3:#f0883e; --o4:#c8580f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:"Microsoft YaHei UI","Segoe UI",sans-serif;font-size:13px;color:var(--text);background:var(--page);}
+  .win{display:flex;width:1560px;height:980px;}
+  /* ------------------------------------------------------ 图标轨 */
+  .rail{width:58px;flex:none;background:#fff;border-right:1px solid var(--line);
+        display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:4px;}
+  .logo{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;
+        font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .ri{width:40px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+  .ri.on{background:var(--soft);color:var(--accent);}
+  .ri svg{width:19px;height:19px;}
+  .rail .sp{flex:1;}
+  .divider{width:26px;height:1px;background:var(--line);margin:10px 0;}
+  /* ---------------------------------------------------------- 主区 */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .top{height:58px;flex:none;background:#fff;border-bottom:1px solid var(--line);
+       display:flex;align-items:center;padding:0 24px;gap:14px;}
+  .top h1{font-size:16px;font-weight:600;margin:0;}
+  .top .sub{font-size:12px;color:var(--subtle);}
+  .top .sp{flex:1;}
+  .btn{height:30px;padding:0 14px;border-radius:7px;border:1px solid var(--line);
+       background:#fff;color:var(--text);font-size:12px;}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;padding:0 16px;}
+  .btn.xs{height:26px;padding:0 12px;font-size:11px;}
+  .scroll{padding:16px 24px 24px;display:flex;flex-direction:column;gap:14px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .chead{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .chead h2{font-size:13px;font-weight:600;margin:0;}
+  .chead .note{font-size:11px;color:var(--subtle);}
+  .chead .sp{flex:1;}
+  .chead .r{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .link{color:var(--accent);text-decoration:none;font-size:11px;}
+  /* ------------------------------------------------------- 热力图卡 */
+  .hm{display:flex;gap:18px;align-items:flex-start;}
+  .plot{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;}
+  .months{display:grid;grid-template-columns:repeat(53,9px);gap:3px;font-size:10px;color:var(--subtle);margin-bottom:6px;}
+  .months span{grid-column:span 4;white-space:nowrap;}
+  .months span:last-child{grid-column:span 5;}
+  .gridwrap{display:flex;gap:8px;}
+  .wl{display:grid;grid-template-rows:repeat(7,9px);gap:3px;font-size:9px;color:var(--subtle);}
+  .wl span{line-height:9px;width:20px;text-align:right;}
+  .grid{display:grid;grid-auto-flow:column;grid-template-columns:repeat(53,9px);grid-template-rows:repeat(7,9px);gap:3px;}
+  .cell{width:9px;height:9px;border-radius:2px;background:var(--g0);}
+  /* 总热力图用大一号格子 */
+  .grid.big{grid-template-columns:repeat(53,13px);grid-template-rows:repeat(7,13px);}
+  .grid.big .cell{width:13px;height:13px;}
+  .wl.big{grid-template-rows:repeat(7,13px);font-size:10px;}
+  .wl.big span{line-height:13px;width:22px;}
+  .months.big{grid-template-columns:repeat(53,13px);font-size:11px;margin-bottom:7px;}
+  .legend{display:flex;gap:14px;font-size:10px;color:var(--subtle);margin-top:10px;align-items:center;}
+  .legend .swl{display:flex;gap:3px;margin-right:5px;}
+  .sw{width:9px;height:9px;border-radius:2px;}
+  .stats{width:170px;flex:none;display:flex;flex-direction:column;gap:10px;padding-left:18px;border-left:1px solid var(--line);}
+  .stat{display:flex;align-items:baseline;gap:6px;}
+  .stat .n{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat .u{font-size:11px;color:var(--subtle);}
+  .clock .t{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.5px;}
+  .clock .d{font-size:11px;color:var(--muted);margin-top:4px;}
+  /* --------------------------------------------------- 三张重点卡 */
+  .frow{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .fcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px 18px;position:relative;}
+  .fcard .bar{position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--accent);}
+  .fh{display:flex;align-items:center;gap:8px;}
+  .fh .name{font-size:13px;font-weight:600;}
+  .tag{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--soft);color:var(--accent);}
+  .fpath{font-size:11px;color:var(--subtle);margin:6px 0 10px;}
+  .fnext{font-size:12px;color:var(--muted);margin-bottom:12px;}
+  .fnext em{font-style:normal;color:var(--text);font-weight:500;}
+  .fbtns{display:flex;align-items:center;gap:12px;}
+  /* --------------------------------------------------- 快速记录条 */
+  .qr{display:flex;gap:10px;align-items:center;}
+  .inp{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;display:flex;align-items:center;
+       padding:0 10px;font-size:12px;color:var(--text);gap:8px;}
+  .inp .k{font-size:10px;color:var(--subtle);}
+  .inp .ph{color:var(--subtle);}
+  /* ------------------------------------------------- 领域热力图卡 */
+  .dom{display:grid;grid-template-columns:1fr 1fr;gap:28px;}
+  .dhead{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .dhead .n{font-size:12px;font-weight:600;}
+  .dhead .r{font-size:10px;color:var(--subtle);margin-left:auto;font-variant-numeric:tabular-nums;}
+  /* ----------------------------------------------------- 今日记录卡 */
+  .trow{display:flex;align-items:center;gap:16px;height:28px;border-bottom:1px solid var(--line);
+        font-variant-numeric:tabular-nums;}
+  .trow:last-child{border-bottom:none;}
+  .trow .t{width:44px;color:var(--subtle);font-size:11px;}
+  .trow .p{width:120px;font-size:11px;color:var(--text);}
+  .trow .m{font-size:12px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="win">
+  <!-- ================================================ 图标轨 -->
+  <nav class="rail">
+    <div class="logo">K</div>
+    <div class="ri on" title="总览">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </div>
+    <div class="ri" title="AI">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M18.5 15l1 2.4 2.5 1-2.5 1-1 2.4-1-2.4L15 18l2.5-1z"/></svg>
+    </div>
+    <div class="divider"></div>
+    <div class="ri" title="热力图">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="4" height="4" rx="1"/><rect x="10" y="4" width="4" height="4" rx="1"/><rect x="17" y="4" width="4" height="4" rx="1"/><rect x="3" y="11" width="4" height="4" rx="1"/><rect x="10" y="11" width="4" height="4" rx="1"/><rect x="3" y="18" width="4" height="3" rx="1"/><rect x="10" y="18" width="4" height="3" rx="1"/><rect x="17" y="11" width="4" height="4" rx="1"/></svg>
+    </div>
+    <div class="ri" title="思维导图">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="2.6"/><circle cx="18" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M7.6 11.2l8-4M7.6 12.8l8 4"/></svg>
+    </div>
+    <div class="ri" title="进程树">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="3" width="8" height="5" rx="1.5"/><path d="M12 8v4M6 16v-4h12v4"/><rect x="3" y="16" width="6" height="5" rx="1.5"/><rect x="15" y="16" width="6" height="5" rx="1.5"/></svg>
+    </div>
+    <div class="ri" title="活动记录">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2" fill="currentColor"/><circle cx="4" cy="12" r="1.2" fill="currentColor"/><circle cx="4" cy="18" r="1.2" fill="currentColor"/></svg>
+    </div>
+    <div class="sp"></div>
+    <div class="ri" title="日记">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11a2 2 0 012 2v14H7a2 2 0 01-2-2z"/><path d="M18 16H7a2 2 0 00-2 2"/></svg>
+    </div>
+    <div class="ri" title="数据">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg>
+    </div>
+    <div class="ri" title="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>
+    </div>
+  </nav>
+
+  <!-- ==================================================== 主区 -->
+  <main class="main">
+    <header class="top">
+      <h1>总览</h1>
+      <span class="sub">一次只推进一件事 · 今天已记 5 次</span>
+      <div class="sp"></div>
+      <button class="btn">快速记录 Ctrl+N</button>
+      <button class="btn pri">记录活动</button>
+    </header>
+
+    <div class="scroll">
+      <!-- 总热力图 -->
+      <section class="card">
+        <div class="chead">
+          <h2>总热力图</h2><span class="note">全部领域与进程汇总 · 每条只算一次</span>
+          <div class="sp"></div>
+          <span class="r">近 52 周 669 次 · 176 天有记录</span>
+        </div>
+        <div class="hm">
+          <div class="plot">
+            <div class="months big" id="m1"></div>
+            <div class="gridwrap">
+              <div class="wl big"><span>周一</span><span></span><span>周三</span><span></span><span>周五</span><span></span><span></span></div>
+              <div class="grid big" id="g1"></div>
+            </div>
+            <div class="legend">
+              <span>少</span><div class="swl"><i class="sw" style="background:var(--g1)"></i><i class="sw" style="background:var(--g2)"></i><i class="sw" style="background:var(--g3)"></i><i class="sw" style="background:var(--g4)"></i></div><span>多</span>
+              <span style="margin-left:10px">6–10 次</span><div class="swl"><i class="sw" style="background:var(--o2)"></i><i class="sw" style="background:var(--o3)"></i><i class="sw" style="background:var(--o4)"></i></div>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="clock"><div class="t">23:38</div><div class="d">2026年11月11日 星期三</div></div>
+            <div class="stat"><span class="n">669</span><span class="u">总记录</span></div>
+            <div class="stat"><span class="n">176</span><span class="u">活跃天</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 当前重点 -->
+      <div class="frow">
+        <div class="fcard"><i class="bar"></i>
+          <div class="fh"><span class="name">线程 2-1-2</span><span class="tag">进行中</span></div>
+          <div class="fpath">领域 2 → 进程 2-1 → 线程 2-1-2</div>
+          <div class="fnext">下一步：<em>本周完成三次</em></div>
+          <div class="fbtns"><button class="btn pri xs">记录活动</button><a class="link" href="#">详情</a></div>
+        </div>
+        <div class="fcard"><i class="bar"></i>
+          <div class="fh"><span class="name">线程 3-1-1</span><span class="tag">进行中</span></div>
+          <div class="fpath">领域 3 → 进程 3-1 → 线程 3-1-1</div>
+          <div class="fnext">下一步：<em>把当前这块做完</em></div>
+          <div class="fbtns"><button class="btn pri xs">记录活动</button><a class="link" href="#">详情</a></div>
+        </div>
+        <div class="fcard"><i class="bar"></i>
+          <div class="fh"><span class="name">线程 3-3-2</span><span class="tag">进行中</span></div>
+          <div class="fpath">领域 1 → 进程 1-4 → 线程 3-3-2</div>
+          <div class="fnext">下一步：<em>保持每周三次</em></div>
+          <div class="fbtns"><button class="btn pri xs">记录活动</button><a class="link" href="#">详情</a></div>
+        </div>
+      </div>
+
+      <!-- 快速记录 -->
+      <section class="card">
+        <div class="chead"><h2>快速记录</h2><span class="note">独立进展记一次活动 · 热力图按次数着色</span></div>
+        <div class="qr">
+          <div class="inp" style="width:280px"><span class="k">进程</span>进程 1-1<span style="margin-left:auto;color:var(--subtle)">▾</span></div>
+          <div class="inp" style="width:140px"><span class="k">日期</span>2026-11-11<span style="margin-left:auto;color:var(--subtle)">▾</span></div>
+          <div class="inp" style="flex:1"><span class="k">备注</span><span class="ph">可留空</span></div>
+          <button class="btn pri">记录</button>
+        </div>
+      </section>
+
+      <!-- 领域热力图 -->
+      <section class="card">
+        <div class="chead"><h2>领域热力图</h2><span class="note">同一条时间轴，只换统计范围</span><div class="sp"></div><a class="link" href="#">在热力图页查看全部</a></div>
+        <div class="dom">
+          <div>
+            <div class="dhead"><span class="n">领域 1</span><span class="r">122 次 · 77 天</span></div>
+            <div class="months" id="m2"></div>
+            <div class="gridwrap">
+              <div class="grid" id="g2"></div>
+            </div>
+          </div>
+          <div>
+            <div class="dhead"><span class="n">领域 2</span><span class="r">248 次 · 111 天</span></div>
+            <div class="months" id="m3"></div>
+            <div class="gridwrap">
+              <div class="grid" id="g3"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 今天记了什么 -->
+      <section class="card">
+        <div class="chead"><h2>今天</h2><span class="note">5 条 · 最早 09:12</span><div class="sp"></div><a class="link" href="#">全部记录</a></div>
+        <div>
+          <div class="trow"><span class="t">23:38</span><span class="p">线程 3-3-1</span><span class="m">对比了两个方案</span></div>
+          <div class="trow"><span class="t">23:38</span><span class="p">线程 3-1-1</span><span class="m">修掉一个问题</span></div>
+          <div class="trow"><span class="t">23:38</span><span class="p">线程 3-1-1</span><span class="m">搭好了骨架</span></div>
+          <div class="trow"><span class="t">23:38</span><span class="p">线程 2-1-1</span><span class="m">确认了方向</span></div>
+          <div class="trow"><span class="t">23:38</span><span class="p">线程 2-1-1</span><span class="m">准备好了材料</span></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+function rnd(seed){let s=seed;return()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};}
+const LV=["var(--g0)","var(--g1)","var(--g2)","var(--g3)","var(--g4)"];
+const OV=["var(--g0)","var(--o1)","var(--o2)","var(--o3)","var(--o4)"];
+function paint(id,cols,rows,seed,start,dense,useOrange){
+  const host=document.getElementById(id),r=rnd(seed);
+  for(let c=0;c<cols;c++){
+    const ramp=Math.min(1,(c-start)/9);
+    const base=(c<start)?0:Math.min(1,dense*(0.30+ramp*0.85)*(0.55+0.9*r()));
+    for(let x=0;x<rows;x++){
+      const d=document.createElement("div");d.className="cell";
+      const p=base*((x>=5)?0.45:1.1);          /* 周末淡一档 */
+      let lv=0;
+      if(p>0.03&&r()<p){
+        const q=r();                            /* 6–10 次是罕见的橙色 */
+        lv=q<0.38?1:q<0.70?2:q<0.93?3:4;
+      }
+      d.style.background=(useOrange&&lv>=4?OV:LV)[lv];
+      host.appendChild(d);
+    }
+  }
+}
+function months(id){
+  const host=document.getElementById(id),ms=["11月","12月","1月","2月","3月","4月","5月","6月","7月","8月","9月","10月"];
+  ms.forEach(m=>{const s=document.createElement("span");s.textContent=m;host.appendChild(s);});
+}
+paint("g1",53,7,7,19,0.85,true);
+paint("g2",53,7,11,24,0.55,false);
+paint("g3",53,7,23,23,0.72,false);
+months("m1");months("m2");months("m3");
+</script>
+</body>
+</html>
