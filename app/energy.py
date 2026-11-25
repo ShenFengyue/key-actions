@@ -1,10 +1,11 @@
 """能量分配：把 100% 的精力分给若干个「能量池」，水缸界面在 pages/energy.py。
 
 核心不变量：任何操作后所有池的占比总和恰好等于 10000 基点（= 100.00%），
-每个值 >= 0。舍入用最大余数法，平局按位置先后，结果完全确定。
+每个值 >= 0。
 
-「空余能量」池常驻且不可删除：删除其他池时额度全部流入它，等待重新分配；
-调低它的占比即可把空余能量按比例分给其他池。
+「空余能量」池是唯一的缓冲：给某个池**加**能量时从空余里扣，空余不够就报
+「能量不足」、不做任何写入；**减**能量时多出的部分回到空余。删除池的额度
+也全部流入空余。空余池常驻、不可删除，占比由其他池自动决定，不能直接调。
 
 每个池的变化自动追加进项目内的 Markdown 档案（data/pool_logs/pool_<id>.md），
 可以直接用文本编辑器查看或修改。
@@ -39,33 +40,6 @@ DEFAULT_COLORS = ["#48C6C3", "#5B8DEF", "#E2B477", "#7FC97F",
 
 # ---------------------------------------------------------------- 分配算法
 
-def largest_remainder(weights: list[int], total: int) -> list[int]:
-    """按权重比例把 total 分给各项，返回整数列表，和恰好为 total。
-
-    权重全为 0 时平均分配；余数按小数余量从大到小补齐，平局按索引。
-    """
-    if total < 0:
-        raise ValueError("total 不能为负")
-    n = len(weights)
-    if n == 0:
-        if total != 0:
-            raise ValueError("没有可分配的对象")
-        return []
-    if any(w < 0 for w in weights):
-        raise ValueError("权重不能为负")
-    s = sum(weights)
-    if s == 0:
-        base, rem = divmod(total, n)
-        return [base + (1 if i < rem else 0) for i in range(n)]
-    floors = [total * w // s for w in weights]
-    remainders = [total * w % s for w in weights]
-    leftover = total - sum(floors)
-    order = sorted(range(n), key=lambda i: (-remainders[i], i))
-    for i in order[:leftover]:
-        floors[i] += 1
-    return floors
-
-
 def validate(units: list[int]) -> None:
     if not units:
         raise ValueError("至少需要一个能量池")
@@ -75,24 +49,28 @@ def validate(units: list[int]) -> None:
         raise ValueError(f"分配总和必须为 {TOTAL_UNITS}，当前为 {sum(units)}")
 
 
-def set_value(units: list[int], index: int, new_value: int) -> list[int]:
-    """把 index 池设为 new_value，其余池按原比例分摊剩余额度。"""
+def set_value(units: list[int], index: int, new_value: int, free_index: int) -> list[int]:
+    """把 index 池设为 new_value：增加从空余池扣，减少回到空余池。
+
+    空余不够本次增加时抛 ValueError（能量不足），调用方不得写入；
+    空余池本身不能直接调整。其余池的占比不受影响。
+    """
     validate(units)
     if not 0 <= index < len(units):
         raise IndexError("池索引越界")
+    if not 0 <= free_index < len(units):
+        raise IndexError("空余能量池索引越界")
+    if index == free_index:
+        raise ValueError("空余能量由其他池自动决定，不能直接调整")
     new_value = max(0, min(TOTAL_UNITS, int(new_value)))
-    if len(units) == 1:
-        return [TOTAL_UNITS]
-    others = [u for i, u in enumerate(units) if i != index]
-    remaining = TOTAL_UNITS - new_value
-    if sum(others) == 0:
-        distributed = largest_remainder([0] * len(others), remaining)
-    else:
-        distributed = largest_remainder(others, remaining)
-    result: list[int] = []
-    it = iter(distributed)
-    for i in range(len(units)):
-        result.append(new_value if i == index else next(it))
+    delta = new_value - units[index]
+    if delta > units[free_index]:
+        raise ValueError(
+            f"能量不足：空余只剩 {units_to_percent(units[free_index])}%，"
+            f"这次要加 {units_to_percent(delta)}%。先把其他池调低或删掉一些。")
+    result = list(units)
+    result[index] = new_value
+    result[free_index] -= delta
     validate(result)
     return result
 
@@ -277,9 +255,13 @@ class EnergyManager:
         self._notify()
 
     def set_percentage(self, pool_id: str, units: int) -> None:
+        """调整占比：增加从空余扣（不够抛 ValueError），减少回到空余。"""
         pools, idx = self._require(pool_id)
+        free_idx = next(i for i, p in enumerate(pools) if p["is_free"])
         old_units = [p["percentage_units"] for p in pools]
-        new_units = set_value(old_units, idx, units)
+        new_units = set_value(old_units, idx, units, free_idx)
+        if new_units == old_units:
+            return
         stamp = clock.stamp()
         with self.db.transaction() as tx:
             for p, u in zip(pools, new_units):
@@ -287,14 +269,24 @@ class EnergyManager:
                     "UPDATE energy_pools SET percentage_units=?, updated_at=? WHERE id=?",
                     (u, stamp, p["id"]))
         target_name = pools[idx]["name"]
+        delta = new_units[idx] - old_units[idx]
         for p, old, new in zip(pools, old_units, new_units):
             if old == new:
                 continue
             if p["id"] == pool_id:
-                line = f"占比 {units_to_percent(old)}% → {units_to_percent(new)}%"
+                if delta > 0:
+                    line = (f"占比 {units_to_percent(old)}% → {units_to_percent(new)}%"
+                            f"（从空余能量扣除 {units_to_percent(delta)}%）")
+                else:
+                    line = (f"占比 {units_to_percent(old)}% → {units_to_percent(new)}%"
+                            f"（{units_to_percent(-delta)}% 回到空余能量）")
             else:
-                line = (f"占比 {units_to_percent(old)}% → {units_to_percent(new)}%"
-                        f"（因「{target_name}」调整自动分摊）")
+                if delta > 0:
+                    line = (f"占比 {units_to_percent(old)}% → {units_to_percent(new)}%"
+                            f"（因「{target_name}」增加自动扣除）")
+                else:
+                    line = (f"占比 {units_to_percent(old)}% → {units_to_percent(new)}%"
+                            f"（接收来自「{target_name}」的 {units_to_percent(-delta)}%）")
             self.log.append(p["id"], p["name"], line)
         self._notify()
 

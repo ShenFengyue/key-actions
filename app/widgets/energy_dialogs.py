@@ -66,18 +66,22 @@ class PoolDialog(AppDialog):
 
         self.percent_spin: QDoubleSpinBox | None = None
         if pool:
-            self.percent_spin = QDoubleSpinBox()
-            self.percent_spin.setRange(0.0, 100.0)
-            self.percent_spin.setDecimals(2)
-            self.percent_spin.setSingleStep(1.0)
-            self.percent_spin.setSuffix(" %")
-            self.percent_spin.setValue(float(units_to_percent(pool["percentage_units"])))
-            form.addRow("占比", self.percent_spin)
             if self.is_free:
-                hint = Muted("删除其他池时，能量会自动流入这里等待分配。\n"
-                             "调低它的占比，即可把空余能量按比例分给其他池。")
+                value = QLabel(f"{units_to_percent(pool['percentage_units'])} %")
+                value.setStyleSheet("font-weight: 600;")
+                form.addRow("占比", value)
+                hint = Muted("空余能量 = 100% − 其他池占比之和，不能直接调。\n"
+                             "给其他池加能量时从这里扣；删池或调低占比时回到这里。")
             else:
-                hint = Muted("调整后其余池会按原比例自动分摊，总和始终为 100%。")
+                self.percent_spin = QDoubleSpinBox()
+                self.percent_spin.setRange(0.0, 100.0)
+                self.percent_spin.setDecimals(2)
+                self.percent_spin.setSingleStep(1.0)
+                self.percent_spin.setSuffix(" %")
+                self.percent_spin.setValue(float(units_to_percent(pool["percentage_units"])))
+                form.addRow("占比", self.percent_spin)
+                hint = Muted("增加占比从「空余能量」扣除，不够会提示能量不足；\n"
+                             "调低占比，多出的能量回到空余。其他池不受影响。")
             hint.setWordWrap(True)
             form.addRow("", hint)
         else:
@@ -129,10 +133,16 @@ class PoolDialog(AppDialog):
             warn(self, "提示", "请填写能量池名称。")
             return
         if self.pool:
+            # 先调占比（可能因能量不足失败）：失败时什么都不写，弹窗留着改
+            if self.percent_spin is not None:
+                new_units = percent_to_units(self.percent_spin.value())
+                if new_units != self.pool["percentage_units"]:
+                    try:
+                        self.manager.set_percentage(self.pool["id"], new_units)
+                    except ValueError as exc:
+                        warn(self, "提示", str(exc))
+                        return
             self.manager.update_info(self.pool["id"], name=name, color=self.new_color)
-            new_units = percent_to_units(self.percent_spin.value())
-            if new_units != self.pool["percentage_units"]:
-                self.manager.set_percentage(self.pool["id"], new_units)
         else:
             self.manager.add_pool(name, self.new_color)
         self.accept()

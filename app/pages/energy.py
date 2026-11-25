@@ -48,7 +48,7 @@ class EnergyPage(QWidget):
         self.total_label = QLabel()
         self.total_label.setStyleSheet(
             f"color: {theme.ACCENT}; font-size: 14px; font-weight: 600;")
-        hint = QLabel("点水缸调整占比，其余池自动分摊，总和始终 100%")
+        hint = QLabel("加能量从空余里扣，不够会提示；减能量回到空余，总和始终 100%")
         hint.setObjectName("Muted")
         add_btn = QPushButton("＋ 新增能量池")
         add_btn.setObjectName("Primary")

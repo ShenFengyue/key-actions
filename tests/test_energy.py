@@ -16,7 +16,6 @@ from app.energy import (  # noqa: E402
     EnergyManager,
     PoolLog,
     add_pool_units,
-    largest_remainder,
     percent_to_units,
     remove_pool_units,
     set_value,
@@ -28,22 +27,39 @@ from tests._support import make_temp_dir, remove_temp_dir  # noqa: E402
 
 
 class AllocationTest(unittest.TestCase):
-    """分配算法不变量：总和恒等于 10000，永不出现负值。"""
+    """分配不变量：总和恒等于 10000；加能量只从空余扣，不够报能量不足。"""
 
     def test_initial_total(self) -> None:
         units = [3000, 2000, 2500, 1000, 1500]
         validate(units)
         self.assertEqual(sum(units), TOTAL_UNITS)
 
-    def test_increase_redistributes_proportionally(self) -> None:
-        # 其余池 3000:2000 = 3:2，剩 8000 → 4800/3200
-        self.assertEqual(set_value([5000, 3000, 2000], 0, 2000), [2000, 4800, 3200])
+    def test_increase_takes_from_free_only(self) -> None:
+        # 空余 3000，给池 1 加 2000：只动空余，池 2 不受影响
+        self.assertEqual(set_value([3000, 5000, 2000], 1, 7000, 0), [1000, 7000, 2000])
 
-    def test_decrease_redistributes_proportionally(self) -> None:
-        self.assertEqual(set_value([5000, 3000, 2000], 0, 8000), [8000, 1200, 800])
+    def test_increase_insufficient_raises(self) -> None:
+        with self.assertRaises(ValueError) as ctx:
+            set_value([0, 5000, 5000], 1, 6000, 0)
+        self.assertIn("能量不足", str(ctx.exception))
+        # 差一点点也不行：空余 1000，要加 1001
+        with self.assertRaises(ValueError):
+            set_value([1000, 5000, 4000], 1, 6001, 0)
 
-    def test_all_zero_others_split_equally(self) -> None:
-        self.assertEqual(set_value([10000, 0, 0], 0, 4000), [4000, 3000, 3000])
+    def test_increase_exactly_free_is_ok(self) -> None:
+        self.assertEqual(set_value([1000, 5000, 4000], 1, 6000, 0), [0, 6000, 4000])
+
+    def test_decrease_returns_to_free(self) -> None:
+        self.assertEqual(set_value([1000, 5000, 4000], 1, 3000, 0), [3000, 3000, 4000])
+
+    def test_decrease_to_zero_returns_all(self) -> None:
+        self.assertEqual(set_value([0, 10000], 1, 0, 0), [10000, 0])
+
+    def test_free_pool_cannot_be_set_directly(self) -> None:
+        with self.assertRaises(ValueError):
+            set_value([3000, 7000], 0, 1000, 0)
+        with self.assertRaises(ValueError):
+            set_value([10000], 0, 0, 0)
 
     def test_add_zero_pool_preserves_total(self) -> None:
         result = add_pool_units([6000, 4000])
@@ -67,29 +83,18 @@ class AllocationTest(unittest.TestCase):
         self.assertEqual(remove_pool_units([0, 10000], 1, 0), [10000])
 
     def test_negative_input_clamped(self) -> None:
-        result = set_value([5000, 5000], 0, -500)
-        self.assertEqual(result, [0, 10000])
+        result = set_value([5000, 5000], 1, -500, 0)
+        self.assertEqual(result, [10000, 0])
         self.assertTrue(all(u >= 0 for u in result))
 
     def test_over_100_clamped(self) -> None:
-        self.assertEqual(set_value([5000, 5000], 0, 20000), [10000, 0])
-
-    def test_single_pool_always_100(self) -> None:
-        self.assertEqual(set_value([10000], 0, 30), [10000])
-
-    def test_rounding_deterministic(self) -> None:
-        a = set_value([3333, 3333, 3334], 0, 100)
-        b = set_value([3333, 3333, 3334], 0, 100)
-        self.assertEqual(a, b)
-        self.assertEqual(sum(a), TOTAL_UNITS)
-        self.assertTrue(all(u >= 0 for u in a))
-
-    def test_largest_remainder_edge_cases(self) -> None:
-        self.assertEqual(largest_remainder([0, 0, 0], 10000), [3334, 3333, 3333])
-        self.assertEqual(largest_remainder([1, 1], 1), [1, 0])
-        self.assertEqual(largest_remainder([], 0), [])
+        self.assertEqual(set_value([5000, 5000], 1, 20000, 0), [0, 10000])
+        # 钳到 100% 也要空余够才行
         with self.assertRaises(ValueError):
-            largest_remainder([], 5)
+            set_value([0, 5000, 5000], 1, 20000, 0)
+
+    def test_no_change_is_noop(self) -> None:
+        self.assertEqual(set_value([2000, 5000, 3000], 1, 5000, 0), [2000, 5000, 3000])
 
     def test_percent_conversion(self) -> None:
         self.assertEqual(percent_to_units(30.25), 3025)
@@ -103,9 +108,12 @@ class AllocationTest(unittest.TestCase):
         units = [0, 10000]  # 索引 0 固定为空余能量池
         for _ in range(300):
             op = rng.choice(["set", "add", "del"])
-            if op == "set":
-                i = rng.randrange(len(units))
-                units = set_value(units, i, rng.randrange(-100, 10101))
+            if op == "set" and len(units) > 1:
+                i = rng.randrange(1, len(units))
+                try:
+                    units = set_value(units, i, rng.randrange(-100, 10101), 0)
+                except ValueError:
+                    pass  # 能量不足：保持原样
             elif op == "add" and len(units) < 12:
                 units = add_pool_units(units)
             elif op == "del" and len(units) > 2:
@@ -163,19 +171,43 @@ class EnergyManagerTest(_EnergyCase):
         self.assertIn("创建", self.manager.log.read(pid, "阅读"))
         self.assertGreater(self.changes, 0)
 
-    def test_set_percentage_redistributes_and_logs(self) -> None:
-        target = self.manager.pools()[0]
+    def test_set_percentage_takes_from_free_and_logs(self) -> None:
+        # 先删一个池腾出 30% 空余，再给英语加 15%
+        self.manager.delete_pool(self.manager.pools()[0]["id"])
+        target = next(p for p in self.manager.pools() if p["name"] == "英语")
         before = self.changes
-        self.manager.set_percentage(target["id"], 5000)
+        self.manager.set_percentage(target["id"], 3500)
         pools = self.manager.pools()
-        self.assertEqual(pools[0]["percentage_units"], 5000)
+        self.assertEqual(
+            next(p for p in pools if p["id"] == target["id"])["percentage_units"], 3500)
+        self.assertEqual(self.manager.free_pool()["percentage_units"], 1500)
+        # 其他池不受影响
+        self.assertEqual(
+            next(p for p in pools if p["name"] == "工作")["percentage_units"], 2500)
         self.assertEqual(sum(p["percentage_units"] for p in pools), TOTAL_UNITS)
         self.assertEqual(self.changes, before + 1)
         log = self.manager.log.read(target["id"], target["name"])
-        self.assertIn("30.00% → 50.00%", log)
-        # 其他池的档案里写明"自动分摊"
-        other = pools[1]
-        self.assertIn("自动分摊", self.manager.log.read(other["id"], other["name"]))
+        self.assertIn("20.00% → 35.00%", log)
+        self.assertIn("从空余能量扣除", log)
+        free = self.manager.free_pool()
+        self.assertIn("自动扣除", self.manager.log.read(free["id"], free["name"]))
+
+    def test_increase_without_free_raises_and_writes_nothing(self) -> None:
+        target = self.manager.pools()[0]  # 空余为 0
+        before = self.changes
+        with self.assertRaises(ValueError) as ctx:
+            self.manager.set_percentage(target["id"], 4000)
+        self.assertIn("能量不足", str(ctx.exception))
+        self.assertEqual(self.manager.pools()[0]["percentage_units"], 3000)
+        self.assertEqual(self.changes, before)
+
+    def test_decrease_returns_to_free(self) -> None:
+        target = self.manager.pools()[0]
+        self.manager.set_percentage(target["id"], 1000)
+        self.assertEqual(self.manager.free_pool()["percentage_units"], 2000)
+        self.assertEqual(self.manager.total_units(), TOTAL_UNITS)
+        log = self.manager.log.read(target["id"], target["name"])
+        self.assertIn("回到空余能量", log)
 
     def test_delete_pool_moves_units_to_free(self) -> None:
         target = self.manager.pools()[0]  # 30%
@@ -195,13 +227,10 @@ class EnergyManagerTest(_EnergyCase):
         self.assertEqual(free["name"], "空余能量")
         self.assertEqual(free["color"], "#6B7680")
 
-    def test_lower_free_pool_distributes_to_others(self) -> None:
-        target = self.manager.pools()[0]
-        self.manager.delete_pool(target["id"])  # 空余 30%
+    def test_free_pool_percentage_cannot_be_set(self) -> None:
         free = self.manager.free_pool()
-        self.manager.set_percentage(free["id"], 0)
-        self.assertEqual(self.manager.free_pool()["percentage_units"], 0)
-        self.assertEqual(self.manager.total_units(), TOTAL_UNITS)
+        with self.assertRaises(ValueError):
+            self.manager.set_percentage(free["id"], 5000)
 
     def test_rename_and_color_logged(self) -> None:
         target = self.manager.pools()[1]
@@ -258,7 +287,7 @@ class EnergyMigrationTest(_EnergyCase):
         self.assertEqual(service.current_slogan().text, "升级前的标语")
         manager = EnergyManager(self.db)
         self.assertEqual(manager.total_units(), TOTAL_UNITS)
-        manager.set_percentage(manager.pools()[0]["id"], 4000)
+        manager.set_percentage(manager.pools()[0]["id"], 2000)
         self.assertEqual(manager.total_units(), TOTAL_UNITS)
         # 升级前自动备份
         self.assertTrue(list(paths.BACKUP_DIR.glob("pre-migration-*.sqlite3")))
@@ -291,7 +320,7 @@ class EnergyPageSmokeTest(unittest.TestCase):
         self.assertIn("100.00%", page.total_label.text())
         # 能量写入会推进数据版本，界面按统一机制刷新
         before = self.service.revision
-        page.manager.set_percentage(page.manager.pools()[0]["id"], 4000)
+        page.manager.set_percentage(page.manager.pools()[0]["id"], 2000)
         self.assertEqual(self.service.revision, before + 1)
         page.refresh()
         self.assertIn("100.00%", page.total_label.text())
