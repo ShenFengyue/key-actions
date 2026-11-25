@@ -1,8 +1,9 @@
-"""笔记页：左边文件夹树，右边 Markdown 编辑器，极简两栏。
+"""笔记页：左边文件夹树，右边 Typora 式 Markdown 即时预览，极简两栏。
 
 文件夹就是 data/notes/ 下的真实目录，笔记就是 .md 文件（存储逻辑在 app/notes.py）。
-切走页面 / 切换笔记 / 关闭前自动保存；Ctrl+S 手动保存；「预览」把 Markdown
-渲染成富文本（复用 AI 页那套渲染器）。
+切走页面 / 切换笔记 / 关闭前自动保存；Ctrl+S 手动保存。
+默认即时预览：光标所在块显示源码，其余块实时渲染；「源码」按钮可切回纯文本
+编辑（跨段结构被破坏时也会自动回退到这里兜底）。
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QStackedWidget,
-    QTextBrowser,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -25,8 +25,8 @@ from PySide6.QtWidgets import (
 )
 
 from .. import clock, notes as store, paths, theme
-from ..widgets import markdown
 from ..widgets.common import Card, Muted, Subtle, confirm, warn
+from ..widgets.markdown_live import MarkdownLiveEdit
 
 REL_ROLE = Qt.ItemDataRole.UserRole
 FOLDER_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -38,6 +38,8 @@ class NotesPage(QWidget):
         store.ensure_root()
         self._current_rel: str | None = None
         self._loading = False
+        self._dirty = False
+        self._source_mode = False
         # 笔记字号单独可调（设置页），不跟全局字号走
         self._notes_size = int(config.get("notes_font_size")) if config else 15
 
@@ -71,14 +73,17 @@ class NotesPage(QWidget):
         editor_card.body.addLayout(header)
 
         self.stack = QStackedWidget()
+        self.live = MarkdownLiveEdit(body_size=self._notes_size)
+        self.live.setStyleSheet(f"QTextEdit {{ font-size: {self._notes_size}px; }}")
+        self.live.setPlaceholderText("在左边选一篇笔记，或点「新建笔记」")
+        self.live.textEdited.connect(self._on_text_changed)
+        self.live.structureBroken.connect(self._fallback_to_source)
         self.editor = QPlainTextEdit()
         self.editor.setStyleSheet(f"QPlainTextEdit {{ font-size: {self._notes_size}px; }}")
         self.editor.setPlaceholderText("在左边选一篇笔记，或点「新建笔记」")
         self.editor.textChanged.connect(self._on_text_changed)
-        self.preview = QTextBrowser()
-        self.preview.setOpenExternalLinks(True)
+        self.stack.addWidget(self.live)
         self.stack.addWidget(self.editor)
-        self.stack.addWidget(self.preview)
         editor_card.body.addWidget(self.stack, 1)
 
         status_row = QHBoxLayout()
@@ -114,12 +119,12 @@ class NotesPage(QWidget):
         row.addWidget(new_note)
         row.addWidget(new_folder)
         row.addStretch(1)
-        self.preview_button = QPushButton("预览")
-        self.preview_button.setCheckable(True)
-        self.preview_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.preview_button.setToolTip("把 Markdown 渲染成排版后的样子")
-        self.preview_button.toggled.connect(self._toggle_preview)
-        row.addWidget(self.preview_button)
+        self.source_button = QPushButton("源码")
+        self.source_button.setCheckable(True)
+        self.source_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.source_button.setToolTip("切回纯 Markdown 源码编辑（默认是即时预览）")
+        self.source_button.toggled.connect(self._toggle_source)
+        row.addWidget(self.source_button)
         save = QPushButton("保存")
         save.setCursor(Qt.CursorShape.PointingHandCursor)
         save.clicked.connect(lambda: self._save(silent=False))
@@ -133,12 +138,12 @@ class NotesPage(QWidget):
         selected = self._current_rel
         self._rebuild_tree(expanded, selected)
         if self._current_rel and store.exists(self._current_rel):
-            if not self.editor.document().isModified():
+            if not self._dirty:
                 self._load_note(self._current_rel)
         elif self._current_rel:
             self._current_rel = None
             self._set_editor_enabled(False)
-            self.editor.clear()
+            self._set_text("")
             self.title_label.setText("没有打开笔记")
             self.path_label.setText("")
 
@@ -191,7 +196,7 @@ class NotesPage(QWidget):
                    _previous: QTreeWidgetItem | None) -> None:
         if current is None:
             return
-        if self.editor.document().isModified():
+        if self._dirty:
             self._save(silent=True)
         if not current.data(0, FOLDER_ROLE):
             self._load_note(current.data(0, REL_ROLE))
@@ -200,7 +205,9 @@ class NotesPage(QWidget):
         self._current_rel = rel
         self._loading = True
         try:
-            self.editor.setPlainText(store.read_note(rel))
+            self._set_text(store.read_note(rel))
+            self._dirty = False
+            self.live.clear_modified()
             self.editor.document().setModified(False)
         finally:
             self._loading = False
@@ -208,56 +215,88 @@ class NotesPage(QWidget):
         self.title_label.setText(rel.split("/")[-1][:-3])
         self.path_label.setText(paths.relative_display(paths.NOTES_DIR / rel))
         self.status_label.setText("")
-        if self.preview_button.isChecked():
-            self._render_preview()
 
     def _set_editor_enabled(self, enabled: bool) -> None:
+        self.live.setEnabled(enabled)
         self.editor.setEnabled(enabled)
-        self.preview_button.setEnabled(enabled)
+        self.source_button.setEnabled(enabled)
 
     # ---------------------------------------------------------------- 编辑
+    def _current_text(self) -> str:
+        return self.editor.toPlainText() if self._source_mode else self.live.source_text()
+
+    def _set_text(self, text: str) -> None:
+        if self._source_mode:
+            self.editor.setPlainText(text)
+        else:
+            self.live.set_text(text)
+
     def _on_text_changed(self) -> None:
         if self._loading:
             return
+        self._dirty = True
         self.status_label.setText("有未保存的修改（Ctrl+S 保存）")
-        if self.preview_button.isChecked():
-            self._render_preview()
 
     def _save(self, *, silent: bool) -> None:
         if not self._current_rel:
             return
         try:
-            store.write_note(self._current_rel, self.editor.toPlainText())
+            store.write_note(self._current_rel, self._current_text())
         except (OSError, ValueError) as exc:
             self.status_label.setText(f"保存失败：{exc}")
             return
+        self._dirty = False
+        self.live.clear_modified()
         self.editor.document().setModified(False)
         stamp = clock.now().strftime("%H:%M")
         self.status_label.setText(
             f"已自动保存 · {stamp}" if silent else f"已保存 · {stamp}")
 
     def flush(self) -> None:
-        """切换主题重建界面之前，把没保存的内容先写盘。"""
-        if self.editor.document().isModified():
+        """切换主题 / 字号重建界面之前，把没保存的内容先写盘。"""
+        if self._dirty:
             self._save(silent=True)
 
     def hideEvent(self, event) -> None:  # noqa: N802 - Qt 命名
-        if self.editor.document().isModified():
+        if self._dirty:
             self._save(silent=True)
         super().hideEvent(event)
 
-    def _toggle_preview(self, checked: bool) -> None:
-        if checked:
-            self._render_preview()
-            self.stack.setCurrentWidget(self.preview)
-        else:
-            self.stack.setCurrentWidget(self.editor)
+    def _toggle_source(self, checked: bool) -> None:
+        """源码 ↔ 即时预览切换，内容无损带过去。"""
+        if checked == self._source_mode:
+            return
+        text = self._current_text()
+        self._source_mode = checked
+        self._loading = True
+        try:
+            if checked:
+                self.editor.setPlainText(text)
+                self.stack.setCurrentWidget(self.editor)
+                self.editor.setFocus()
+            else:
+                self.live.set_text(text)
+                self.stack.setCurrentWidget(self.live)
+                self.live.setFocus()
+        finally:
+            self._loading = False
 
-    def _render_preview(self) -> None:
-        style = {"text": theme.TEXT, "muted": theme.TEXT_MUTED,
-                 "code_bg": theme.SURFACE_ALT, "border": theme.BORDER}
-        self.preview.setHtml(
-            markdown.to_html(self.editor.toPlainText(), style, body_size=self._notes_size))
+    def _fallback_to_source(self) -> None:
+        """即时预览里跨段结构被破坏：自动回退源码模式，保住内容。"""
+        if self._source_mode:
+            return
+        text = self.live.source_text()
+        self._source_mode = True
+        self.source_button.blockSignals(True)
+        self.source_button.setChecked(True)
+        self.source_button.blockSignals(False)
+        self._loading = True
+        try:
+            self.editor.setPlainText(text)
+            self.stack.setCurrentWidget(self.editor)
+        finally:
+            self._loading = False
+        self.status_label.setText("这一段改动太复杂，已切到源码模式，内容没丢")
 
     # ---------------------------------------------------------------- 操作
     def _new_note(self) -> None:
@@ -272,7 +311,7 @@ class NotesPage(QWidget):
         self.refresh()
         self._select_rel(rel)
         self._load_note(rel)
-        self.editor.setFocus()
+        (self.editor if self._source_mode else self.live).setFocus()
 
     def _new_folder(self) -> None:
         name, ok = QInputDialog.getText(self, "新建文件夹", "文件夹名字：")
@@ -374,7 +413,7 @@ class NotesPage(QWidget):
         if self._current_rel == rel:
             self._current_rel = None
             self._set_editor_enabled(False)
-            self.editor.clear()
+            self._set_text("")
             self.title_label.setText("没有打开笔记")
             self.path_label.setText("")
         self.refresh()

@@ -7,6 +7,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtGui import QTextCursor  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402  必须在设置平台后导入
 
 from app import notes as store  # noqa: E402
@@ -139,6 +140,14 @@ class NotesPageSmokeTest(_NotesCase):
 
         return NotesPage()
 
+    @staticmethod
+    def _type(page, text: str) -> None:
+        """在即时预览控件里模拟真实打字。"""
+        cursor = page.live.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        page.live.setTextCursor(cursor)
+        cursor.insertText(text)
+
     def test_page_builds_and_lists_tree(self) -> None:
         store.create_folder("", "工作")
         store.create_note("工作", "周报")
@@ -155,11 +164,11 @@ class NotesPageSmokeTest(_NotesCase):
         page = self._page()
         page._select_rel(rel)
         self.assertEqual(page._current_rel, rel)
-        page.editor.insertPlainText("# 新内容")
-        self.assertTrue(page.editor.document().isModified())
+        self._type(page, "# 新内容")
+        self.assertTrue(page._dirty)
         page.flush()
         self.assertEqual(store.read_note(rel), "# 新内容")
-        self.assertFalse(page.editor.document().isModified())
+        self.assertFalse(page._dirty)
         page.deleteLater()
 
     def test_switch_note_saves_previous(self) -> None:
@@ -167,31 +176,41 @@ class NotesPageSmokeTest(_NotesCase):
         second = store.create_note("", "第二篇")
         page = self._page()
         page._select_rel(first)
-        page.editor.insertPlainText("第一篇的内容")
+        self._type(page, "第一篇的内容")
         page._select_rel(second)
         self.assertEqual(store.read_note(first), "第一篇的内容")
         self.assertEqual(page._current_rel, second)
         page.deleteLater()
 
-    def test_preview_renders_markdown(self) -> None:
+    def test_live_preview_renders_other_blocks(self) -> None:
         rel = store.create_note("", "渲染")
         store.write_note(rel, "# 标题\n\n**加粗**")
         page = self._page()
         page._select_rel(rel)
-        page.preview_button.setChecked(True)
-        html = page.preview.toHtml()
-        self.assertIn("标题", html)
-        self.assertIn("加粗", html)
+        texts = []
+        block = page.live.document().firstBlock()
+        while block.isValid():
+            texts.append(block.text())
+            block = block.next()
+        # 光标在第一段（源码），第二段已渲染：加粗不带 ** 号
+        self.assertIn("# 标题", texts)
+        self.assertIn("加粗", texts)
+        self.assertNotIn("**加粗**", texts)
+        # 源码模式兜底：内容无损带过去
+        page.source_button.setChecked(True)
+        self.assertEqual(page.editor.toPlainText(), "# 标题\n\n**加粗**")
+        page.source_button.setChecked(False)
+        self.assertEqual(page.live.source_text(), "# 标题\n\n**加粗**")
         page.deleteLater()
 
     def test_refresh_keeps_unsaved_text(self) -> None:
         rel = store.create_note("", "草稿")
         page = self._page()
         page._select_rel(rel)
-        page.editor.insertPlainText("写了一半")
+        self._type(page, "写了一半")
         page.refresh()
-        self.assertEqual(page.editor.toPlainText(), "写了一半")
-        self.assertTrue(page.editor.document().isModified())
+        self.assertEqual(page._current_text(), "写了一半")
+        self.assertTrue(page._dirty)
         page.deleteLater()
 
 
