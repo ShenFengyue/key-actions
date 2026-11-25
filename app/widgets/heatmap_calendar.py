@@ -62,6 +62,8 @@ class HeatmapCalendar(QWidget):
         self._grid = heatmap_stats.build_calendar(weeks=weeks)
         self._counts: dict[str, int] = {}
         self._summaries: dict[str, list[str]] = {}
+        # 休息日：这些天涂粉色，优先于活动次数的绿/橙分档
+        self._rest_days: set[str] = set()
         # 整个窗口内一条记录都没有时为 True（整张图淡化显示）
         self._dim = True
         self._hover: tuple[int, int] | None = None
@@ -96,6 +98,11 @@ class HeatmapCalendar(QWidget):
         self._counts = dict(counts)
         self._summaries = dict(summaries or {})
         self._dim = not any(self._counts.values())
+        self.update()
+
+    def set_rest_days(self, days: set[str] | None) -> None:
+        """休息日集合：这些格子涂粉色（即使当天也有活动记录）。"""
+        self._rest_days = set(days or ())
         self.update()
 
     @property
@@ -184,6 +191,11 @@ class HeatmapCalendar(QWidget):
                     painter.setBrush(QColor(theme.EASTER_PINK))
                     painter.drawRoundedRect(rect, self._radius, self._radius)
                     continue
+                if day in self._rest_days:
+                    # 休息日优先：即使当天记了活动，这一格也是粉色
+                    painter.setBrush(QColor(theme.REST_PINK))
+                    painter.drawRoundedRect(rect, self._radius, self._radius)
+                    continue
                 level = (
                     heatmap_stats.level_for_global(count)
                     if self._hot
@@ -222,9 +234,14 @@ class HeatmapCalendar(QWidget):
         count = self._counts.get(day, 0)
         parsed = date.fromisoformat(day)
         title = f"{day} {WEEKDAY_NAMES[(parsed.weekday() + 1) % 7]}"
-        if count == 0:
+        rest = day in self._rest_days
+        if count == 0 and not rest:
             return f"{title}\n无活动记录"
-        lines = [title, f"{count} 次活动"]
+        lines = [title]
+        if rest:
+            lines.append("休息日")
+        if count:
+            lines.append(f"{count} 次活动")
         for summary in self._summaries.get(day, [])[:3]:
             lines.append(f"· {summary}")
         if count > len(self._summaries.get(day, [])[:3]):
@@ -284,8 +301,8 @@ class HeatmapLegend(QWidget):
         font = QFont()
         font.setPointSize(max(8, round(8 * self._scale)))
         self.setFont(font)
-        # 总热力图用两行图例：橙色（6–10）在上，绿色（1–5）在下
-        rows = 2 if self._hot else 1
+        # 总热力图用三行图例：橙色（6–10）在上，绿色（1–5）居中，粉色「休息」在下
+        rows = 3 if self._hot else 1
         self.setFixedHeight(int(round((self._cell + 6) * rows)))
         self.setFixedWidth(int(round(150 * self._scale)))
 
@@ -296,7 +313,11 @@ class HeatmapLegend(QWidget):
         painter.setPen(QPen(QColor(theme.TEXT_SUBTLE)))
         metrics = painter.fontMetrics()
         rows = (
-            (("6–10", theme.GLOBAL_ORANGE), ("1–5", theme.GLOBAL_GREEN))
+            (
+                ("6–10", theme.GLOBAL_ORANGE),
+                ("1–5", theme.GLOBAL_GREEN),
+                ("休息", (theme.REST_PINK,)),
+            )
             if self._hot
             else ((self._less, theme.LEVEL_COLORS),)
         )

@@ -50,6 +50,8 @@ LIGHT: dict[str, object] = {
     "GLOBAL_ORANGE": ("#ffd8a8", "#ffb86c", "#f0883e", "#d9651a", "#a33d0a"),
     # 彩蛋：总热力图上某一天的特殊颜色
     "EASTER_PINK": "#ff6fae",
+    # 休息日：总热力图上被标记为休息的那一格（与彩蛋同色系）
+    "REST_PINK": "#ff6fae",
     "EMPTY_CELL_BORDER": "#d8dee4",
     "MAP_PALETTE": ("#0969da", "#8250df", "#bf8700", "#1a7f37", "#0e7490", "#cf222e"),
     "STATUS_STYLE": {
@@ -94,6 +96,7 @@ DARK: dict[str, object] = {
     "GLOBAL_GREEN": ("#033a16", "#196c2e", "#2ea043", "#56d364", "#7ee787"),
     "GLOBAL_ORANGE": ("#5a2c08", "#8a4a12", "#c26a1c", "#f0883e", "#ffb86c"),
     "EASTER_PINK": "#ff8fc7",
+    "REST_PINK": "#ff8fc7",
     # 描边与空格同色：深色下不再画出一片网格轮廓
     "EMPTY_CELL_BORDER": "#1b2028",
     "MAP_PALETTE": ("#4493f8", "#a371f7", "#d29922", "#3fb950", "#39c5cf", "#f85149"),
@@ -141,6 +144,7 @@ LEVEL_COLORS = LIGHT["LEVEL_COLORS"]
 GLOBAL_GREEN = LIGHT["GLOBAL_GREEN"]
 GLOBAL_ORANGE = LIGHT["GLOBAL_ORANGE"]
 EASTER_PINK = LIGHT["EASTER_PINK"]
+REST_PINK = LIGHT["REST_PINK"]
 EMPTY_CELL_BORDER = LIGHT["EMPTY_CELL_BORDER"]
 MAP_PALETTE = LIGHT["MAP_PALETTE"]
 STATUS_STYLE = LIGHT["STATUS_STYLE"]

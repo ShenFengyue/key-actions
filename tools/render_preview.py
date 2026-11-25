@@ -106,6 +106,10 @@ def build_demo_service() -> tuple[Database, LifeManagerService]:
     travel = service.node_by_name("进程 3-2", NodeType.PROCESS)
     service.delete_node(travel.id)
 
+    # 演示休息日：最近几天里挑三天标记，总热力图上应是粉色
+    for offset in (0, 3, 9):
+        service.mark_rest_day((today - timedelta(days=offset)).isoformat())
+
     # 演示日记：写两天的内容进同一个 Markdown 文件
     from app import diary as diary_store
 
@@ -211,6 +215,15 @@ def main() -> int:
     _settle(app)
     quick.grab().save(str(OUTPUT_DIR / "quick-capture-note.png"))
     print(f"已渲染 quick-capture-note → {OUTPUT_DIR / 'quick-capture-note.png'}")
+
+    # 快速记录输入「休息」：第一行应是休息日选项
+    rest_dialog = QuickCaptureDialog(service, None)
+    rest_dialog.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    rest_dialog.show()
+    rest_dialog.input.setText("休息")
+    _settle(app)
+    rest_dialog.grab().save(str(OUTPUT_DIR / "quick-capture-rest.png"))
+    print(f"已渲染 quick-capture-rest → {OUTPUT_DIR / 'quick-capture-rest.png'}")
 
     # 热力图页点开的全屏大图
     from app.pages.heatmaps import HeatmapDetailDialog, scope_data

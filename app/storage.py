@@ -19,7 +19,7 @@ from .models import NodeType, PathStep, Status, now_stamp
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA_STATEMENTS = (
     """
@@ -85,6 +85,13 @@ SCHEMA_STATEMENTS = (
     CREATE TABLE IF NOT EXISTS slogans (
         id         TEXT PRIMARY KEY,
         text       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+    # 休息日：一天一行，只记日期本身，不归属任何节点，也不算活动次数。
+    """
+    CREATE TABLE IF NOT EXISTS rest_days (
+        day        TEXT PRIMARY KEY,
         created_at TEXT NOT NULL
     )
     """,
@@ -154,6 +161,14 @@ MIGRATIONS: dict[int, tuple[str, ...]] = {
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_ai_messages_conv ON ai_messages(conversation_id, created_at)",
+    ),
+    6: (
+        """
+        CREATE TABLE IF NOT EXISTS rest_days (
+            day        TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL
+        )
+        """,
     ),
 }
 

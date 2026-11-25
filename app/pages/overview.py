@@ -295,6 +295,10 @@ class OverviewHeatmapCard(Card):
                 conn, "area_id", self.area_id, grid.date_from, grid.date_to
             )
         self.calendar.set_data(counts, summaries)
+        # 休息日只涂总热力图：它是「一整天」的概念，不属于任何领域
+        self.calendar.set_rest_days(
+            self.service.rest_days(grid.date_from, grid.date_to) if self.total else None
+        )
         total, active_days = heatmap_stats.window_totals(counts)
         if self.total:
             self.stats_label.setText(f"近 {grid.weeks} 周 {total} 次 · {active_days} 天有记录")

@@ -401,9 +401,22 @@ class MainWindow(QMainWindow):
         )
 
     def quick_capture(self) -> None:
-        """Ctrl+N：一个输入框，先匹配节点，再写备注，两次回车完成。"""
+        """Ctrl+N：一个输入框，先匹配节点，再写备注，两次回车完成。
+
+        输入「休息」回车：把今天标记为休息日（总热力图变粉），再输一次取消。
+        """
         dialog = QuickCaptureDialog(self.service, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.recorded is not None:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if dialog.rest_day is not None:
+            self.on_data_changed()
+            message = (
+                f"已取消 {dialog.rest_day} 的休息日标记"
+                if dialog.rest_cleared
+                else f"已把 {dialog.rest_day} 标记为休息日（总热力图变粉）"
+            )
+            self.statusBar().showMessage(message, 5000)
+        elif dialog.recorded is not None:
             self.on_data_changed()
             self.statusBar().showMessage(
                 f"已记录一次活动：{self.service.path_text(dialog.recorded.node_id)}", 5000

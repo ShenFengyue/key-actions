@@ -32,6 +32,8 @@ from .common import AppDialog, Subtle
 MATCH_PLACEHOLDER = "输入关键字匹配进程 / 线程，回车选中"
 NOTE_PLACEHOLDER = "备注（可留空，再按一次回车保存）"
 MATCH_HINT = "上下键选择 · 回车选中 · Esc 取消"
+# 输入恰好等于这个词时，列表第一行出现「休息日」选项（不影响下面的节点匹配）
+REST_KEYWORD = "休息"
 
 
 class QuickCaptureDialog(AppDialog):
@@ -43,6 +45,10 @@ class QuickCaptureDialog(AppDialog):
         super().__init__(parent)
         self.service = service
         self.recorded: Activity | None = None
+        # 休息日结果：rest_day 是被标记/取消的日期，rest_cleared 表示这次是取消
+        self.rest_day: str | None = None
+        self.rest_cleared = False
+        self._rest_mode = False
         self.stage = "match"
         self.candidates = build_candidates(service)
         self.matches: list[Candidate] = []
@@ -98,13 +104,16 @@ class QuickCaptureDialog(AppDialog):
         if query is None:
             query = self.input.text()
         typed = bool(query.strip())
+        self._rest_mode = typed and query.strip() == REST_KEYWORD
         if typed:
             self.matches = match(self.candidates, query, DEFAULT_LIMIT)
         else:
             # 没输入就先给出最近记过的几个，方便重复记录同一件事
             self.matches = recent_candidates(self.service, self.candidates)
         self._fill_list()
-        if not self.matches:
+        if self._rest_mode:
+            self._set_status("回车确认 · Esc 取消")
+        elif not self.matches:
             self._set_status(
                 "没有匹配的进程或线程" if typed else "输入关键字匹配进程 / 线程"
             )
@@ -115,12 +124,20 @@ class QuickCaptureDialog(AppDialog):
 
     def _fill_list(self) -> None:
         self.result_list.clear()
+        if self._rest_mode:
+            day = today_str()
+            if self.service.is_rest_day(day):
+                text = f"休息日 · 今天已是休息日，回车取消标记（{day}）"
+            else:
+                text = f"休息日 · 把今天标记为休息日，总热力图变粉（{day}）"
+            item = QListWidgetItem(text, self.result_list)
+            item.setToolTip("休息日不算活动次数；再输入一次「休息」可以取消")
         for candidate in self.matches:
             item = QListWidgetItem(candidate.display, self.result_list)
             item.setToolTip(f"{candidate.name}（{candidate.type_label}） · {candidate.parent_path}")
-        if self.matches:
+        if self._rest_mode or self.matches:
             self.result_list.setCurrentRow(0)
-        self.result_list.setVisible(bool(self.matches))
+        self.result_list.setVisible(bool(self._rest_mode or self.matches))
         self._resize_list()
 
     def _resize_list(self) -> None:
@@ -139,10 +156,14 @@ class QuickCaptureDialog(AppDialog):
 
     def _accept_match(self) -> None:
         row = self.result_list.currentRow()
-        if row < 0 or row >= len(self.matches):
+        if self._rest_mode and row == 0:
+            self._commit_rest()
+            return
+        index = row - 1 if self._rest_mode else row
+        if index < 0 or index >= len(self.matches):
             self._set_status("先用关键字选一个进程或线程", danger=True)
             return
-        self.target = self.matches[row]
+        self.target = self.matches[index]
         self.stage = "note"
         self.result_list.clear()
         self.result_list.setVisible(False)
@@ -172,6 +193,21 @@ class QuickCaptureDialog(AppDialog):
         except ValidationError as exc:
             self._set_status(str(exc), danger=True)
             return
+        self.accept()
+
+    def _commit_rest(self) -> None:
+        """回车选中「休息日」：今天没标记就标记，已标记就取消。"""
+        day = today_str()
+        try:
+            if self.service.is_rest_day(day):
+                self.service.clear_rest_day(day)
+                self.rest_cleared = True
+            else:
+                self.service.mark_rest_day(day)
+        except ValidationError as exc:
+            self._set_status(str(exc), danger=True)
+            return
+        self.rest_day = day
         self.accept()
 
     # ------------------------------------------------------------ 杂项

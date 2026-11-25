@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 # 导出格式标识：历史导出件里写的都是 life-manager-json，改名后保持原值，
 # 否则旧导出会被判成「不是本应用导出的文件」。
 JSON_FORMAT = "life-manager-json"
-JSON_FORMAT_VERSION = 1
+# v2：新增可选字段 rest_days（休息日）。旧导出没有它，导入时按空处理。
+JSON_FORMAT_VERSION = 2
 FOCUS_LIMIT = 3
 SLOGAN_MAX_LENGTH = 60
 
@@ -884,6 +885,58 @@ class LifeManagerService:
         ).fetchone()
         return int(row["n"]), (row["latest"] or "")
 
+    # =========================================================== 休息日
+    def mark_rest_day(self, day: str | None = None) -> str:
+        """把某一天标记为休息日（重复标记没有副作用）。
+
+        休息日只记日期本身：不归属任何节点、不算活动次数，
+        总热力图上那一格涂粉色。
+        """
+        day = (day or today_str()).strip()
+        if not _is_valid_date(day):
+            raise ValidationError("休息日日期格式应为 YYYY-MM-DD。")
+        with self.db.transaction() as tx:
+            tx.execute(
+                "INSERT INTO rest_days(day, created_at) VALUES(?, ?) "
+                "ON CONFLICT(day) DO NOTHING",
+                (day, now_stamp()),
+            )
+        logger.info("标记休息日：%s", day)
+        self._touch()
+        return day
+
+    def clear_rest_day(self, day: str | None = None) -> bool:
+        """取消某天的休息日标记；返回是否真的删掉了一条。"""
+        day = (day or today_str()).strip()
+        if not _is_valid_date(day):
+            raise ValidationError("休息日日期格式应为 YYYY-MM-DD。")
+        with self.db.transaction() as tx:
+            cursor = tx.execute("DELETE FROM rest_days WHERE day = ?", (day,))
+            removed = cursor.rowcount > 0
+        if removed:
+            logger.info("取消休息日：%s", day)
+            self._touch()
+        return removed
+
+    def is_rest_day(self, day: str | None = None) -> bool:
+        day = (day or today_str()).strip()
+        row = self.db.conn.execute(
+            "SELECT 1 FROM rest_days WHERE day = ?", (day,)
+        ).fetchone()
+        return row is not None
+
+    def rest_days(self, date_from: str | None = None, date_to: str | None = None) -> set[str]:
+        """窗口内的全部休息日（供热力图涂色）。"""
+        sql = "SELECT day FROM rest_days WHERE 1 = 1"
+        params: list[object] = []
+        if date_from:
+            sql += " AND day >= ?"
+            params.append(date_from)
+        if date_to:
+            sql += " AND day <= ?"
+            params.append(date_to)
+        return {row["day"] for row in self.db.conn.execute(sql, params).fetchall()}
+
     # =========================================================== 历史事件
     def events_for_node(self, node_id: str, limit: int = 200) -> list[Event]:
         rows = self.db.conn.execute(
@@ -1198,6 +1251,9 @@ class LifeManagerService:
             "events": [
                 dict(row) for row in self.db.conn.execute("SELECT * FROM events ORDER BY created_at")
             ],
+            "rest_days": [
+                dict(row) for row in self.db.conn.execute("SELECT * FROM rest_days ORDER BY day")
+            ],
         }
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(
@@ -1256,13 +1312,24 @@ class LifeManagerService:
                 raise ImportValidationError("存在指向不存在节点的活动记录。")
             if raw["node_type"] not in (NodeType.PROCESS.value, NodeType.THREAD.value):
                 raise ImportValidationError(f"活动记录的节点类型不合法：{raw['node_type']}")
+        # rest_days 是 v2 新增的可选字段：旧导出没有它，按空处理。
+        rest_rows = payload.get("rest_days", [])
+        if not isinstance(rest_rows, list):
+            raise ImportValidationError("rest_days 字段必须是列表。")
+        seen_days: set[str] = set()
+        for raw in rest_rows:
+            if not isinstance(raw, dict) or not _is_valid_date(str(raw.get("day", ""))):
+                raise ImportValidationError("休息日记录缺少合法的 day 字段（YYYY-MM-DD）。")
+            if raw["day"] in seen_days:
+                raise ImportValidationError(f"休息日日期重复：{raw['day']}")
+            seen_days.add(raw["day"])
         return payload
 
     def import_json(self, source: str | Path) -> Path:
         """覆盖导入：导入前自动备份，失败时保留全部现有数据。"""
         payload = self.validate_import_file(source)
         safety = self.backup(label="pre-import")
-        tables = ("activities", "events", "associations", "nodes")
+        tables = ("activities", "events", "associations", "nodes", "rest_days")
         node_columns = (
             "id", "type", "name", "parent_id", "position", "status", "pinned",
             "next_action", "created_at", "updated_at", "archived_at",
@@ -1316,6 +1383,14 @@ class LifeManagerService:
                     f"INSERT INTO events({','.join(event_columns)})"
                     f" VALUES({','.join('?' * len(event_columns))})",
                     _rows(payload["events"], event_columns),
+                )
+                # 休息日：旧导出没有 rest_days 字段时导入为空；created_at 缺失补当前时间。
+                tx.executemany(
+                    "INSERT INTO rest_days(day, created_at) VALUES(?, ?)",
+                    [
+                        (item["day"], item.get("created_at") or now_stamp())
+                        for item in payload.get("rest_days", [])
+                    ],
                 )
                 tx.execute(
                     "INSERT INTO meta(key, value) VALUES('seeded', '1') "
