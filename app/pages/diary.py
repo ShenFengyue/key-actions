@@ -128,7 +128,7 @@ class DiaryPage(QWidget):
         row.addWidget(self.date_edit)
 
         self.header_label = QLabel("")
-        self.header_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self.header_label.setStyleSheet(f"font-size: {theme.FONT_SIZE + 1}px; font-weight: 600;")
         row.addWidget(self.header_label)
         row.addStretch(1)
         return bar

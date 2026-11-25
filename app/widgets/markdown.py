@@ -77,8 +77,14 @@ def _join(lines: list[str], style: dict[str, str]) -> str:
     return out
 
 
-def to_html(text: str, style: dict[str, str]) -> str:
-    """Markdown 子集 → Qt 富文本片段。认识不了的语法按纯文本显示，不丢内容。"""
+def to_html(text: str, style: dict[str, str], body_size: int | None = None) -> str:
+    """Markdown 子集 → Qt 富文本片段。认识不了的语法按纯文本显示，不丢内容。
+
+    body_size 可指定正文字号（笔记页按设置缩放），标题与代码块跟着等比走；
+    不传就用默认 BODY_SIZE（AI 页保持原样）。
+    """
+    body = int(body_size) if body_size else BODY_SIZE
+    sizes = {1: body + 3, 2: body + 2, 3: body + 1}
     lines = (text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
     parts: list[str] = []
     paragraph: list[str] = []
@@ -117,11 +123,11 @@ def to_html(text: str, style: dict[str, str]) -> str:
                 code_lines.append(lines[index])
                 index += 1
             index += 1  # 跳过收尾的 ```
-            body = "<br/>".join(_escape(item) for item in code_lines) or "&nbsp;"
+            body_ = "<br/>".join(_escape(item) for item in code_lines) or "&nbsp;"
             parts.append(
                 '<p style="margin:0 0 9px 0; padding:7px 9px; '
                 f"background-color:{style['code_bg']}; font-family:{MONO_FAMILY}; "
-                f'font-size:{BODY_SIZE - 1}px;">{body}</p>'
+                f'font-size:{body - 1}px;">{body_}</p>'
             )
             continue
 
@@ -129,7 +135,7 @@ def to_html(text: str, style: dict[str, str]) -> str:
         if heading:
             flush_all()
             level = len(heading.group(1))
-            size = {1: H1_SIZE, 2: H2_SIZE, 3: H3_SIZE}[level]
+            size = sizes[level]
             top = 0 if not parts else 10
             parts.append(
                 f'<p style="margin:{top}px 0 6px 0; font-size:{size}px; '
@@ -145,11 +151,11 @@ def to_html(text: str, style: dict[str, str]) -> str:
             while index < len(lines) and lines[index].lstrip().startswith(">"):
                 quote.append(lines[index].lstrip().lstrip(">").strip())
                 index += 1
-            body = _join(quote, style)
+            quote_body = _join(quote, style)
             # Qt 富文本不支持 <p> 上的 border-left / padding，所以用「竖线字符 + 灰色文字」表达引用
             parts.append(
                 '<p style="margin:0 0 9px 0;">'
-                f'<span style="color:{style["muted"]};">\u258d&nbsp;{body}</span></p>'
+                f'<span style="color:{style["muted"]};">\u258d&nbsp;{quote_body}</span></p>'
             )
             continue
 

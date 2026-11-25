@@ -116,6 +116,7 @@ def main() -> int:
 
     config = AppConfig()
     theme.apply_theme(str(config.get("theme")))
+    theme.apply_font_size(config.get("font_size"))
     app.setPalette(theme.palette())
     app.setStyleSheet(theme.stylesheet())
     db = Database()
@@ -146,6 +147,7 @@ def main() -> int:
     code = 0
     while True:
         theme.apply_theme(str(config.get("theme")))
+        theme.apply_font_size(config.get("font_size"))
         app.setPalette(theme.palette())
         app.setStyleSheet(theme.stylesheet())
         window = MainWindow(service, config)

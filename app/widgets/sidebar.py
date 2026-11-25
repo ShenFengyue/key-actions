@@ -193,7 +193,7 @@ class Sidebar(QWidget):
             self.slogan_label.setText("双击这里写一句标语")
             color = theme.TEXT_SUBTLE
         self.slogan_label.setStyleSheet(
-            f"color: {color}; font-size: 12px; background: transparent; line-height: 150%;"
+            f"color: {color}; font-size: {theme.FONT_SIZE - 1}px; background: transparent; line-height: 150%;"
         )
 
     def slogan_text(self) -> str:

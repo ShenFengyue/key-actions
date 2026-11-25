@@ -26,6 +26,10 @@ DEFAULTS: dict[str, Any] = {
     "last_page": "overview",
     # 配色：light / dark。切换后主窗口会整体重建一次（见 main.py）。
     "theme": "light",
+    # 字体大小（px）：全局影响整个界面，笔记只影响笔记编辑与预览。
+    # 改动保存后主窗口会按新字号整体重建一次（与配色切换同一机制）。
+    "font_size": 14,
+    "notes_font_size": 15,
     # 总览「当前重点」卡片的显示顺序（节点 id 列表）。
     # 这是纯界面偏好：只影响总览页里的排列，不写数据库、不改动置顶状态本身。
     "focus_order": [],

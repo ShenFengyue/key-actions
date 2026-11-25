@@ -156,6 +156,9 @@ def main() -> int:
     if not QFontDatabase.families():
         print("警告：当前平台插件没有可用字体，文字会渲染成方块。")
     config = AppConfig(OUTPUT_DIR / "preview-config.json")
+    theme.apply_font_size(config.get("font_size"))
+    app.setFont(theme.app_font())
+    app.setStyleSheet(theme.stylesheet())
     window = MainWindow(service, config)
     window.resize(1560, 980)
     # 使用真实平台插件真正显示窗口后再抓取，保证控件全部完成绘制（含下拉控件与文字）。

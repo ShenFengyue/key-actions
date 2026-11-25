@@ -151,6 +151,23 @@ STATUS_STYLE = LIGHT["STATUS_STYLE"]
 
 _current = "light"
 
+# 全局字体大小（px）。设置页可调，main.py 启动 / 重建时从配置读入。
+# 样式表里所有字号都按它推算，改一个数整个界面一起缩放。
+FONT_SIZE = 14
+FONT_SIZE_RANGE = (12, 20)
+
+
+def apply_font_size(px: int | float | str | None) -> int:
+    """设置全局字号（钳到合法范围），返回实际生效值。"""
+    global FONT_SIZE
+    try:
+        value = int(px)
+    except (TypeError, ValueError):
+        value = FONT_SIZE
+    low, high = FONT_SIZE_RANGE
+    FONT_SIZE = max(low, min(high, value))
+    return FONT_SIZE
+
 
 def current_theme() -> str:
     return _current
@@ -180,7 +197,7 @@ FONT_FAMILIES = "Microsoft YaHei UI, Microsoft YaHei, Segoe UI, PingFang SC, san
 
 def app_font() -> QFont:
     font = QFont("Microsoft YaHei UI")
-    font.setPointSize(10)
+    font.setPointSize(max(9, round(FONT_SIZE * 0.75)))
     font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
     return font
 
@@ -237,11 +254,17 @@ def palette() -> QPalette:
 
 
 def stylesheet() -> str:
-    """按当前主题生成全局样式表（每次调用都读当前的颜色变量）。"""
+    """按当前主题生成全局样式表（每次调用都读当前的颜色变量）。
+
+    字号全部按 FONT_SIZE 推算：fs 正文、s 辅助、xs 提示，标题等比放大。
+    """
+    fs = FONT_SIZE
+    s = fs - 1
+    xs = fs - 2
     return f"""
     QWidget {{
         font-family: {FONT_FAMILIES};
-        font-size: 13px;
+        font-size: {fs}px;
         color: {TEXT};
     }}
     QMainWindow {{ background: {PAGE_BG}; }}
@@ -258,22 +281,22 @@ def stylesheet() -> str:
     /* ---------------------------------------------------- 侧边导航 */
     /* 左栏只有一条竖线：导航是文字列表，不是一列按钮 */
     #Sidebar {{ background: {SIDEBAR_BG}; border-right: 1px solid {BORDER_MUTED}; }}
-    #SidebarTitle {{ color: {TEXT}; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }}
-    #SidebarSubtitle {{ color: {TEXT_SUBTLE}; font-size: 11px; }}
+    #SidebarTitle {{ color: {TEXT}; font-size: {fs + 1}px; font-weight: 600; letter-spacing: 0.2px; }}
+    #SidebarSubtitle {{ color: {TEXT_SUBTLE}; font-size: {xs}px; }}
     #NavButton {{
         text-align: left;
         background: transparent;
         border: none;
         padding: 0 0 0 12px;
         color: {TEXT_MUTED};
-        font-size: 13px;
+        font-size: {fs}px;
     }}
     #NavButton:hover {{ color: {TEXT}; }}
     #NavButton:checked {{ color: {TEXT}; font-weight: 600; }}
     /* 主题切换：两个文字项，当前那个加粗 */
     #ThemeText {{
         background: transparent; border: none; padding: 0;
-        color: {TEXT_SUBTLE}; font-size: 12px; text-align: left;
+        color: {TEXT_SUBTLE}; font-size: {s}px; text-align: left;
     }}
     #ThemeText:hover {{ color: {TEXT}; }}
     #ThemeText:checked {{ color: {TEXT}; font-weight: 600; }}
@@ -292,17 +315,17 @@ def stylesheet() -> str:
 
     /* -------------------------------------------------------- 顶栏 */
     #TopBar {{ background: {BG}; border-bottom: 1px solid {BORDER_MUTED}; }}
-    #PageTitle {{ font-size: 20px; font-weight: 600; letter-spacing: 0.3px; }}
-    #PageSubtitle {{ color: {TEXT_SUBTLE}; font-size: 12px; }}
+    #PageTitle {{ font-size: {fs + 7}px; font-weight: 600; letter-spacing: 0.3px; }}
+    #PageSubtitle {{ color: {TEXT_SUBTLE}; font-size: {s}px; }}
     /* 顶栏与总览里的圆形按钮 */
     #Pill {{
         background: {BG}; border: 1px solid {BORDER_MUTED}; border-radius: 16px;
-        padding: 0 16px; color: {TEXT}; font-size: 13px;
+        padding: 0 16px; color: {TEXT}; font-size: {fs}px;
     }}
     #Pill:hover {{ border-color: {BORDER}; color: {TEXT}; }}
     #PillPrimary {{
         background: {ACCENT}; border: 1px solid {ACCENT}; border-radius: 16px;
-        padding: 0 18px; color: #ffffff; font-size: 13px; font-weight: 500;
+        padding: 0 18px; color: #ffffff; font-size: {fs}px; font-weight: 500;
     }}
     #PillPrimary:hover {{ background: {ACCENT_HOVER}; border-color: {ACCENT_HOVER}; }}
     #Pill:disabled {{ color: {DISABLED_FG}; border-color: {BORDER_MUTED}; }}
@@ -317,10 +340,10 @@ def stylesheet() -> str:
     #PlainCard {{ background: transparent; border: none; border-radius: 0; }}
     /* 当前重点不画框，只靠竖细线分隔（线由 FocusCard 自己画） */
     #FocusCard {{ background: transparent; border: none; border-radius: 0; }}
-    #SectionHeader {{ color: {TEXT}; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }}
-    #Muted {{ color: {TEXT_MUTED}; font-size: 12px; }}
-    #Subtle {{ color: {TEXT_SUBTLE}; font-size: 11px; }}
-    #Mono {{ font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; color: {TEXT_MUTED}; }}
+    #SectionHeader {{ color: {TEXT}; font-size: {fs + 2}px; font-weight: 600; letter-spacing: 0.2px; }}
+    #Muted {{ color: {TEXT_MUTED}; font-size: {s}px; }}
+    #Subtle {{ color: {TEXT_SUBTLE}; font-size: {xs}px; }}
+    #Mono {{ font-family: Consolas, "Cascadia Mono", monospace; font-size: {s}px; color: {TEXT_MUTED}; }}
 
     /* -------------------------------------------------------- 按钮 */
     QPushButton {{
@@ -347,7 +370,7 @@ def stylesheet() -> str:
     QPushButton#Ghost:hover {{ background: {ACCENT_SOFT}; border-radius: 6px; }}
     QPushButton#Collapse {{
         background: transparent; border: 1px solid transparent; color: {TEXT_MUTED};
-        font-size: 15px; padding: 2px 8px;
+        font-size: {fs + 1}px; padding: 2px 8px;
     }}
     QPushButton#Collapse:hover {{ background: {SURFACE_ALT}; border-radius: 6px; color: {TEXT}; }}
     QPushButton#SectionToggle {{
@@ -387,7 +410,7 @@ def stylesheet() -> str:
         padding: 2px 0;
         min-height: 22px;
     }}
-    #FieldKey {{ color: {TEXT_SUBTLE}; font-size: 11px; }}
+    #FieldKey {{ color: {TEXT_SUBTLE}; font-size: {xs}px; }}
 
     /* ----------------------------------------------------- 树与表 */
     QTreeWidget, QTableWidget, QListWidget {{
@@ -418,7 +441,7 @@ def stylesheet() -> str:
         background: transparent;
         gridline-color: transparent;
     }}
-    QTableWidget#BareTable::item {{ padding: 2px 4px; font-size: 12px; }}
+    QTableWidget#BareTable::item {{ padding: 2px 4px; font-size: {s}px; }}
 
     /* ----------------------------------------------------- 滚动条 */
     QScrollBar:vertical {{ background: transparent; width: 10px; margin: 0; }}
@@ -448,7 +471,7 @@ def stylesheet() -> str:
     #HeatmapRow:hover, #HeatmapRowArea:hover {{ background: {SURFACE_ALT}; }}
     #RowToggle {{
         background: transparent; border: none; padding: 0;
-        color: {TEXT_MUTED}; font-size: 10px;
+        color: {TEXT_MUTED}; font-size: {fs - 3}px;
     }}
     #RowToggle:hover {{ color: {ACCENT}; }}
 
@@ -460,12 +483,12 @@ def stylesheet() -> str:
         border-bottom: 1px solid {BORDER_MUTED};
         border-radius: 0;
         padding: 12px 14px;
-        font-size: 16px;
+        font-size: {fs + 3}px;
     }}
     #QuickCaptureInput:focus {{ border-bottom: 1px solid {ACCENT}; }}
     #QuickCaptureList {{ background: {BG}; border: none; border-radius: 0; }}
     #QuickCaptureList::item {{ padding: 6px 14px; }}
-    #QuickCaptureHint {{ color: {TEXT_SUBTLE}; font-size: 11px; padding: 6px 14px; }}
+    #QuickCaptureHint {{ color: {TEXT_SUBTLE}; font-size: {xs}px; padding: 6px 14px; }}
 
     /* --------------------------------------------- 日记快速记录（Ctrl+M） */
     #DiaryCapture {{ background: {BG}; border: 1px solid {BORDER}; }}
@@ -474,6 +497,6 @@ def stylesheet() -> str:
         border: none;
         border-radius: 0;
         padding: 12px 14px;
-        font-size: 15px;
+        font-size: {fs + 2}px;
     }}
     """

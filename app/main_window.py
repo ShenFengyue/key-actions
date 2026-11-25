@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
             "heatmaps": HeatmapsPage(service),
             "activity": ActivityPage(service),
             "energy": EnergyPage(service),
-            "notes": NotesPage(),
+            "notes": NotesPage(config),
             "diary": DiaryPage(),
             "data": DataPage(service, config=config),
             "settings": SettingsPage(config),
@@ -280,7 +280,7 @@ class MainWindow(QMainWindow):
             if hasattr(page, "sloganEditRequested"):
                 page.sloganEditRequested.connect(self._edit_slogan)
         activity.openNodeRequested.connect(self.open_node)
-        settings.saved.connect(ai_page.reload_config)
+        settings.saved.connect(self._on_settings_saved)
         ai_page.openSettingsRequested.connect(lambda: self.set_page("settings"))
 
     def on_data_changed(self) -> None:
@@ -360,6 +360,19 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("已记到今天的日记里", 4000)
 
     # ---------------------------------------------------------------- 标语
+    def _on_settings_saved(self) -> None:
+        """保存设置：AI 配置即时生效；全局字号变了就重建界面（与换配色同机制）。"""
+        ai_page = self.pages.get("ai")
+        if ai_page is not None:
+            ai_page.reload_config()
+        if int(self.config.get("font_size")) != theme.FONT_SIZE:
+            for key in ("diary", "notes"):
+                page = self.pages.get(key)
+                if page is not None and hasattr(page, "flush"):
+                    page.flush()
+            self.restart_requested = True
+            self.close()
+
     def switch_theme(self, name: str) -> None:
         """切换配色。
 

@@ -17,11 +17,12 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from .. import ai, paths
+from .. import ai, paths, theme
 from ..appconfig import AppConfig
 from ..widgets.ai_worker import TestWorker
 from ..widgets.common import Card, Muted, SectionHeader, Subtle
@@ -147,6 +148,25 @@ class SettingsPage(QWidget):
         card = Card()
         self.start_maximized = QCheckBox("启动时最大化")
         card.body.addWidget(self.start_maximized)
+
+        form = QFormLayout()
+        form.setContentsMargins(0, 4, 0, 0)
+        form.setSpacing(8)
+        self.global_font = QSpinBox()
+        self.global_font.setRange(*theme.FONT_SIZE_RANGE)
+        self.global_font.setSuffix(" px")
+        self.global_font.setMaximumWidth(120)
+        form.addRow("全局字体大小", self.global_font)
+        self.notes_font = QSpinBox()
+        self.notes_font.setRange(12, 28)
+        self.notes_font.setSuffix(" px")
+        self.notes_font.setMaximumWidth(120)
+        form.addRow("笔记字体大小", self.notes_font)
+        card.body.addLayout(form)
+        card.body.addWidget(
+            Subtle("全局字体影响整个界面；笔记字体只影响笔记页。保存后界面会按新字号重建一次。")
+        )
+
         card.body.addWidget(
             Subtle(f"所有数据都在项目文件夹内：{paths.relative_display(paths.DATA_DIR)}")
         )
@@ -162,6 +182,8 @@ class SettingsPage(QWidget):
         self.temperature.setValue(float(self.ai_config.get("temperature") or 0.7))
         self.system_prompt.setPlainText(str(self.ai_config.get("system_prompt") or ""))
         self.start_maximized.setChecked(bool(self.config.get("start_maximized")))
+        self.global_font.setValue(int(self.config.get("font_size")))
+        self.notes_font.setValue(int(self.config.get("notes_font_size")))
         self._sync_enabled()
 
     def _collect(self) -> ai.AIConfig:
@@ -182,6 +204,8 @@ class SettingsPage(QWidget):
             QMessageBox.warning(self, "保存失败", str(exc))
             return
         self.config.set("start_maximized", self.start_maximized.isChecked())
+        self.config.set("font_size", int(self.global_font.value()))
+        self.config.set("notes_font_size", int(self.notes_font.value()))
         self.config.save()
         self.ai_config = config
         self.status.setText("已保存。")

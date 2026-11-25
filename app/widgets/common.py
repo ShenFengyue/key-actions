@@ -129,7 +129,7 @@ class BeijingClock(QWidget):
         self.date_label = Subtle("")
         self.date_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.date_label.setStyleSheet(
-            f"color: {theme.TEXT_MUTED}; font-size: 13px; background: transparent;"
+            f"color: {theme.TEXT_MUTED}; font-size: {theme.FONT_SIZE}px; background: transparent;"
         )
         self.zone_label = Subtle("")
         self.zone_label.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -176,7 +176,7 @@ class StatusChip(QLabel):
         self.setText(status.value)
         self.setStyleSheet(
             f"color: {foreground}; background: {background}; border-radius: 10px;"
-            f" padding: 1px 9px; font-size: 11px;"
+            f" padding: 1px 9px; font-size: {theme.FONT_SIZE - 2}px;"
         )
 
 
@@ -637,7 +637,7 @@ class QuickRecordDialog(AppDialog):
         layout.addLayout(form)
 
         self.error_label = QLabel("")
-        self.error_label.setStyleSheet(f"color: {theme.DANGER}; font-size: 12px;")
+        self.error_label.setStyleSheet(f"color: {theme.DANGER}; font-size: {theme.FONT_SIZE - 1}px;")
         self.error_label.setVisible(False)
         layout.addWidget(self.error_label)
 

@@ -108,7 +108,7 @@ class PoolCard(QWidget):
 
         # 名称
         name_font = QFont(self.font())
-        name_font.setPointSizeF(10.0)
+        name_font.setPointSizeF(max(9.0, theme.FONT_SIZE * 0.75))
         p.setFont(name_font)
         p.setPen(QColor(theme.TEXT_MUTED))
         name_rect = QRectF(0, tank.bottom() + 4, w, name_h - 4)

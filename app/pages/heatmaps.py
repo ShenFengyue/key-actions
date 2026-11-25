@@ -200,7 +200,7 @@ class HeatmapRow(QFrame):
         name_row.addStretch(1)
 
         self._stats_label = QLabel("")
-        self._stats_label.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 11px;")
+        self._stats_label.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE - 2}px;")
         self._stats_label.setIndent(12)  # 与名字左边缘对齐（色条 4 + 间距 8）
 
         box = QWidget()
@@ -313,7 +313,7 @@ class HeatmapDetailDialog(AppDialog):
         header = QHBoxLayout()
         header.setSpacing(10)
         title = QLabel(node.name)
-        title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        title.setStyleSheet(f"font-size: {theme.FONT_SIZE + 7}px; font-weight: 700;")
         header.addWidget(title)
         if scope_kind == "area":
             header.addWidget(Subtle("领域：含其下全部进程与线程"))

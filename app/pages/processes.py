@@ -514,13 +514,13 @@ class ProcessesPage(QWidget):
         header = Card()
         title_row = QHBoxLayout()
         title = QLabel(node.name)
-        title.setStyleSheet("font-size: 16px; font-weight: 600;")
+        title.setStyleSheet(f"font-size: {theme.FONT_SIZE + 3}px; font-weight: 600;")
         title_row.addWidget(title)
         title_row.addStretch(1)
         badge = QLabel(node.type.label)
         badge.setStyleSheet(
             f"color: {theme.TEXT_MUTED}; background: {theme.SURFACE}; border-radius: 10px;"
-            f" padding: 1px 8px; font-size: 11px;"
+            f" padding: 1px 8px; font-size: {theme.FONT_SIZE - 2}px;"
         )
         title_row.addWidget(badge)
         header.body.addLayout(title_row)
@@ -531,7 +531,7 @@ class ProcessesPage(QWidget):
         status_row.addWidget(StatusChip(node.status))
         if node.pinned:
             pinned = QLabel("已置顶为重点")
-            pinned.setStyleSheet(f"color: #9a6700; font-size: 12px;")
+            pinned.setStyleSheet(f"color: #9a6700; font-size: {theme.FONT_SIZE - 1}px;")
             status_row.addWidget(pinned)
         status_row.addStretch(1)
         header.body.addLayout(status_row)

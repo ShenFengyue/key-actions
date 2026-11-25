@@ -47,7 +47,7 @@ class EnergyPage(QWidget):
         header = QHBoxLayout()
         self.total_label = QLabel()
         self.total_label.setStyleSheet(
-            f"color: {theme.ACCENT}; font-size: 14px; font-weight: 600;")
+            f"color: {theme.ACCENT}; font-size: {theme.FONT_SIZE + 1}px; font-weight: 600;")
         hint = QLabel("加能量从空余里扣，不够会提示；减能量回到空余，总和始终 100%")
         hint.setObjectName("Muted")
         add_btn = QPushButton("＋ 新增能量池")

@@ -184,7 +184,7 @@ class PoolLogDialog(AppDialog):
         self.editor = QPlainTextEdit()
         self.editor.setPlainText(pool_log.read(pool["id"], pool["name"]))
         self.editor.setStyleSheet(
-            "font-family: 'Cascadia Mono', 'Consolas', monospace; font-size: 12px;")
+            f"font-family: 'Cascadia Mono', 'Consolas', monospace; font-size: {theme.FONT_SIZE - 1}px;")
         layout.addWidget(self.editor, 1)
 
         buttons = QHBoxLayout()

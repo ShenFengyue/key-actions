@@ -33,11 +33,13 @@ FOLDER_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 class NotesPage(QWidget):
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, config=None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         store.ensure_root()
         self._current_rel: str | None = None
         self._loading = False
+        # 笔记字号单独可调（设置页），不跟全局字号走
+        self._notes_size = int(config.get("notes_font_size")) if config else 15
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 18)
@@ -61,7 +63,7 @@ class NotesPage(QWidget):
         editor_card = Card()
         header = QHBoxLayout()
         self.title_label = QLabel("没有打开笔记")
-        self.title_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self.title_label.setStyleSheet(f"font-size: {theme.FONT_SIZE}px; font-weight: 600;")
         self.path_label = Subtle("")
         header.addWidget(self.title_label)
         header.addSpacing(10)
@@ -70,6 +72,7 @@ class NotesPage(QWidget):
 
         self.stack = QStackedWidget()
         self.editor = QPlainTextEdit()
+        self.editor.setStyleSheet(f"QPlainTextEdit {{ font-size: {self._notes_size}px; }}")
         self.editor.setPlaceholderText("在左边选一篇笔记，或点「新建笔记」")
         self.editor.textChanged.connect(self._on_text_changed)
         self.preview = QTextBrowser()
@@ -253,7 +256,8 @@ class NotesPage(QWidget):
     def _render_preview(self) -> None:
         style = {"text": theme.TEXT, "muted": theme.TEXT_MUTED,
                  "code_bg": theme.SURFACE_ALT, "border": theme.BORDER}
-        self.preview.setHtml(markdown.to_html(self.editor.toPlainText(), style))
+        self.preview.setHtml(
+            markdown.to_html(self.editor.toPlainText(), style, body_size=self._notes_size))
 
     # ---------------------------------------------------------------- 操作
     def _new_note(self) -> None:

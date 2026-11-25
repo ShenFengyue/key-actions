@@ -123,7 +123,7 @@ class MessageBubble(QWidget):
         inner.setSpacing(4)
 
         who = QLabel("你" if user else "AI")
-        who.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 11px; font-weight: 600;")
+        who.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE - 2}px; font-weight: 600;")
         inner.addWidget(who)
 
         body = MarkdownView(text, BUBBLE_WIDTH - 28)
@@ -174,10 +174,10 @@ class RecordCard(QFrame):
         inner.setSpacing(7)
 
         title = QLabel(f"待写入 {len(intents)} 条活动记录")
-        title.setStyleSheet(f"color: {theme.TEXT}; font-size: 13px; font-weight: 600;")
+        title.setStyleSheet(f"color: {theme.TEXT}; font-size: {theme.FONT_SIZE}px; font-weight: 600;")
         inner.addWidget(title)
         tip = QLabel("确认后才写进数据库；点「不记了」不会有任何变化。")
-        tip.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 11px;")
+        tip.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE - 2}px;")
         inner.addWidget(tip)
 
         candidates = build_candidates(service)
@@ -185,7 +185,7 @@ class RecordCard(QFrame):
             hits = match(candidates, intent.target, limit=1)
             caption = QLabel(f"第 {index} 条 · 原话「{intent.target}」")
             caption.setWordWrap(True)
-            caption.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 11px;")
+            caption.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: {theme.FONT_SIZE - 2}px;")
             inner.addWidget(caption)
 
             line = QHBoxLayout()
@@ -207,7 +207,7 @@ class RecordCard(QFrame):
             note_row = QHBoxLayout()
             note_row.setSpacing(6)
             note_label = QLabel("备注")
-            note_label.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 11px;")
+            note_label.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE - 2}px;")
             note_label.setFixedWidth(30)
             note = QLineEdit(intent.note)
             note.setPlaceholderText("可留空")
@@ -218,7 +218,7 @@ class RecordCard(QFrame):
 
         self.error = QLabel("")
         self.error.setWordWrap(True)
-        self.error.setStyleSheet(f"color: {theme.DANGER}; font-size: 11px;")
+        self.error.setStyleSheet(f"color: {theme.DANGER}; font-size: {theme.FONT_SIZE - 2}px;")
         self.error.setVisible(False)
         inner.addWidget(self.error)
 
@@ -273,7 +273,7 @@ class RecordCard(QFrame):
         self._rows = []
         result = QLabel(text)
         result.setWordWrap(True)
-        result.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: 600;")
+        result.setStyleSheet(f"color: {color}; font-size: {theme.FONT_SIZE - 1}px; font-weight: 600;")
         self.layout().addWidget(result)
 
 
@@ -579,7 +579,7 @@ class AIPage(QWidget):
             hint = QLabel("新建一条对话，直接输入问题即可。\n历史记录只保存在本机。")
             hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
             hint.setStyleSheet(
-                f"color: {theme.TEXT_SUBTLE}; font-size: 13px; padding: 70px 0;"
+                f"color: {theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE}px; padding: 70px 0;"
             )
             self.messages_layout.addWidget(hint)
 

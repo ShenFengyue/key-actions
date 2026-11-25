@@ -53,7 +53,7 @@ class ActivityEditDialog(AppDialog):
         layout.addWidget(self.note_edit)
 
         self.error_label = QLabel("")
-        self.error_label.setStyleSheet(f"color: {theme.DANGER}; font-size: 12px;")
+        self.error_label.setStyleSheet(f"color: {theme.DANGER}; font-size: {theme.FONT_SIZE - 1}px;")
         self.error_label.setVisible(False)
         layout.addWidget(self.error_label)
 

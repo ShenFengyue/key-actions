@@ -213,7 +213,7 @@ class QuickCaptureDialog(AppDialog):
     # ------------------------------------------------------------ 杂项
     def _set_status(self, text: str, *, danger: bool = False) -> None:
         color = theme.DANGER if danger else theme.TEXT_SUBTLE
-        self.status_label.setStyleSheet(f"color: {color}; font-size: 11px;")
+        self.status_label.setStyleSheet(f"color: {color}; font-size: {theme.FONT_SIZE - 2}px;")
         self.status_label.setText(text)
 
     def eventFilter(self, obj, event) -> bool:  # noqa: N802 - Qt 命名

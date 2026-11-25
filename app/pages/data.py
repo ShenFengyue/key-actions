@@ -179,7 +179,7 @@ class DataPage(QWidget):
         row.setSpacing(10)
         name = QLabel(label)
         name.setMinimumWidth(210)
-        name.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 12px;")
+        name.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: {theme.FONT_SIZE - 1}px;")
         row.addWidget(name)
         value = QLabel(str(path))
         value.setObjectName("Mono")

@@ -79,17 +79,17 @@ class FocusCard(Card):
         title_row = QHBoxLayout()
         title_row.setSpacing(8)
         self._title = QLabel()
-        self._title.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self._title.setStyleSheet(f"font-size: {theme.FONT_SIZE + 1}px; font-weight: 600;")
         title_row.addWidget(self._title)
         # 状态用纯文字：一屏里只留一个重色，状态不再抢按钮的注意力
         self._chip = QLabel()
-        self._chip.setStyleSheet("font-size: 11px;")
+        self._chip.setStyleSheet(f"font-size: {theme.FONT_SIZE - 2}px;")
         title_row.addWidget(self._chip)
         title_row.addStretch(1)
         self.body.addLayout(title_row)
 
         self._path = Subtle("")
-        self._path.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: 12px;")
+        self._path.setStyleSheet(f"color: {theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE - 1}px;")
         self.body.addWidget(self._path)
 
         self._action = QLabel()
@@ -181,12 +181,12 @@ class FocusCard(Card):
         self._title.setText(node.name)
         self._chip.setText(node.status.value)
         self._chip.setStyleSheet(
-            f"color: {theme.STATUS_STYLE[node.status.value][0]}; font-size: 11px;"
+            f"color: {theme.STATUS_STYLE[node.status.value][0]}; font-size: {theme.FONT_SIZE - 2}px;"
         )
         self._path.setText(self.service.path_text(self.node_id))
         self._action.setText(f"下一步：{next_action}" if next_action else "下一步：尚未设置")
         self._action.setStyleSheet(
-            f"color: {theme.TEXT if next_action else theme.TEXT_SUBTLE}; font-size: 13px;"
+            f"color: {theme.TEXT if next_action else theme.TEXT_SUBTLE}; font-size: {theme.FONT_SIZE}px;"
         )
 
 
@@ -229,7 +229,7 @@ class OverviewHeatmapCard(Card):
             header = QHBoxLayout()
             header.setSpacing(12)
             title = QLabel("总热力图")
-            title.setStyleSheet("font-size: 15px; font-weight: 600;")
+            title.setStyleSheet(f"font-size: {theme.FONT_SIZE + 2}px; font-weight: 600;")
             header.addWidget(title)
             header.addWidget(Subtle("全部领域与进程汇总 · 每条只算一次"))
             header.addStretch(1)
@@ -269,7 +269,7 @@ class OverviewHeatmapCard(Card):
         side_layout.setContentsMargins(0, 0, 0, 0)
         side_layout.setSpacing(2)
         name = QLabel(self.service.require_node(area_id).name)
-        name.setStyleSheet("font-size: 13px; font-weight: 600;")
+        name.setStyleSheet(f"font-size: {theme.FONT_SIZE}px; font-weight: 600;")
         self.stats_label = Subtle("")
         side_layout.addWidget(name)
         side_layout.addWidget(self.stats_label)

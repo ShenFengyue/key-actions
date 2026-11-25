@@ -277,7 +277,7 @@ class ActivityPage(QWidget):
             f"记录时间：{activity.created_at} · 记录 ID：{activity.id[:8]}"
         )
         info.setWordWrap(True)
-        info.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 12px;")
+        info.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: {theme.FONT_SIZE - 1}px;")
         self.detail_card.body.addWidget(info)
 
         target = self.service.get_node(activity.node_id)
