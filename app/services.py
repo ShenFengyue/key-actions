@@ -66,6 +66,11 @@ class LifeManagerService:
     def _touch(self) -> None:
         self._revision += 1
 
+    def notify_external_change(self) -> None:
+        """其他模块（如能量分配 app/energy.py）写入数据库后调用，
+        让数据版本自增，界面据此按统一机制刷新。"""
+        self._touch()
+
     # =========================================================== 读取节点
     def get_node(self, node_id: str) -> Node | None:
         row = self.db.conn.execute("SELECT * FROM nodes WHERE id = ?", (node_id,)).fetchone()

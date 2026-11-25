@@ -19,7 +19,7 @@ from .models import NodeType, PathStep, Status, now_stamp
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA_STATEMENTS = (
     """
@@ -95,6 +95,20 @@ SCHEMA_STATEMENTS = (
         created_at TEXT NOT NULL
     )
     """,
+    # 能量分配：一池一行，占比用整数基点（100% = 10000），总和恒等于 10000。
+    # is_free=1 的「空余能量」池常驻且不可删除，删除其他池的额度全部流入它。
+    """
+    CREATE TABLE IF NOT EXISTS energy_pools (
+        id               TEXT PRIMARY KEY,
+        name             TEXT NOT NULL,
+        percentage_units INTEGER NOT NULL DEFAULT 0 CHECK (percentage_units >= 0),
+        color            TEXT NOT NULL,
+        sort_order       INTEGER NOT NULL DEFAULT 0,
+        is_free          INTEGER NOT NULL DEFAULT 0 CHECK (is_free IN (0, 1)),
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL
+    )
+    """,
     # AI 对话历史：只存对话本身，不存任何日记 / 活动 / 备份内容。
     """
     CREATE TABLE IF NOT EXISTS ai_conversations (
@@ -167,6 +181,20 @@ MIGRATIONS: dict[int, tuple[str, ...]] = {
         CREATE TABLE IF NOT EXISTS rest_days (
             day        TEXT PRIMARY KEY,
             created_at TEXT NOT NULL
+        )
+        """,
+    ),
+    7: (
+        """
+        CREATE TABLE IF NOT EXISTS energy_pools (
+            id               TEXT PRIMARY KEY,
+            name             TEXT NOT NULL,
+            percentage_units INTEGER NOT NULL DEFAULT 0 CHECK (percentage_units >= 0),
+            color            TEXT NOT NULL,
+            sort_order       INTEGER NOT NULL DEFAULT 0,
+            is_free          INTEGER NOT NULL DEFAULT 0 CHECK (is_free IN (0, 1)),
+            created_at       TEXT NOT NULL,
+            updated_at       TEXT NOT NULL
         )
         """,
     ),

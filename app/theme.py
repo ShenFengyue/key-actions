@@ -357,7 +357,7 @@ def stylesheet() -> str:
     QPushButton#SectionToggle:hover {{ color: {ACCENT}; }}
 
     /* --------------------------------------------------- 输入控件 */
-    QLineEdit, QPlainTextEdit, QTextEdit, QComboBox, QDateEdit, QSpinBox {{
+    QLineEdit, QPlainTextEdit, QTextEdit, QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox {{
         background: {BG};
         border: 1px solid {BORDER};
         border-radius: 6px;
@@ -365,7 +365,7 @@ def stylesheet() -> str:
         selection-background-color: {ACCENT_SOFT};
         selection-color: {TEXT};
     }}
-    QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QDateEdit:focus {{
+    QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QDateEdit:focus, QDoubleSpinBox:focus {{
         border-color: {ACCENT};
     }}
     QComboBox::drop-down {{ border: none; width: 18px; }}

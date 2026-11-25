@@ -28,6 +28,7 @@ NAV_ITEMS: tuple[tuple[str, str, str], ...] = (
     ("mindmap", "思维导图", "Ctrl+3"),
     ("processes", "进程树", "Ctrl+5"),
     ("activity", "活动记录", "Ctrl+4"),
+    ("energy", "能量分配", "Ctrl+0"),
 )
 
 # 贴着左栏底部的一组：日记 + 数据 + 设置

@@ -51,7 +51,7 @@ class UiSmokeTest(unittest.TestCase):
         remove_temp_dir(self.tmp)
 
     def test_all_pages_build_and_switch(self) -> None:
-        for key in ("overview", "heatmaps", "mindmap", "activity", "processes", "diary", "data"):
+        for key in ("overview", "heatmaps", "mindmap", "activity", "processes", "energy", "diary", "data"):
             self.window.set_page(key)
             self.app.processEvents()
             self.assertIs(self.window.stack.currentWidget(), self.window.pages[key])
@@ -61,7 +61,7 @@ class UiSmokeTest(unittest.TestCase):
 
         keys = [key for key, _label, _shortcut in NAV_ITEMS]
         self.assertEqual(
-            keys, ["overview", "ai", "heatmaps", "mindmap", "processes", "activity"]
+            keys, ["overview", "ai", "heatmaps", "mindmap", "processes", "activity", "energy"]
         )
         self.assertEqual(ALL_NAV_ITEMS[-1][0], "settings")
         # 设置按钮在左栏里是最靠下的那个
@@ -441,7 +441,7 @@ class UiSmokeTest(unittest.TestCase):
         from PySide6.QtGui import QShortcut
 
         sidebar = self.window.sidebar
-        self.assertEqual(len(sidebar.buttons), 9)
+        self.assertEqual(len(sidebar.buttons), 10)
         for button in sidebar.buttons.values():
             self.assertGreaterEqual(button.height(), 30, "行高太小，不好点")
             self.assertLessEqual(button.height(), 36, "行高太大，又变回一列大按钮了")

@@ -25,6 +25,7 @@ from .pages.activity import ActivityPage
 from .pages.ai import AIPage
 from .pages.data import DataPage
 from .pages.diary import DiaryPage
+from .pages.energy import EnergyPage
 from .pages.heatmaps import HeatmapsPage
 from .pages.mindmap import MindMapPage
 from .pages.overview import OverviewPage
@@ -44,6 +45,7 @@ PAGE_TITLES = {
     "processes": "进程树",
     "heatmaps": "热力图",
     "activity": "活动记录",
+    "energy": "能量分配",
     "diary": "日记",
     "data": "数据",
     "settings": "设置",
@@ -103,6 +105,7 @@ class MainWindow(QMainWindow):
             "processes": ProcessesPage(service),
             "heatmaps": HeatmapsPage(service),
             "activity": ActivityPage(service),
+            "energy": EnergyPage(service),
             "diary": DiaryPage(),
             "data": DataPage(service, config=config),
             "settings": SettingsPage(config),

@@ -152,6 +152,7 @@ def main() -> int:
         ("processes", 1560, 980),
         ("heatmaps", 1560, 1180),
         ("activity", 1560, 980),
+        ("energy", 1560, 980),
         ("diary", 1560, 980),
         ("data", 1560, 980),
         ("settings", 1560, 980),
@@ -198,6 +199,17 @@ def main() -> int:
     _settle(app)
     dialog.grab().save(str(OUTPUT_DIR / "deleted.png"))
     print(f"已渲染 deleted → {OUTPUT_DIR / 'deleted.png'}")
+
+    # 能量分配：编辑一个能量池的对话框（占比 / 颜色 / 删除 / 档案入口）
+    from app.widgets.energy_dialogs import PoolDialog
+
+    energy_page = window.pages["energy"]
+    pool_dialog = PoolDialog(energy_page.manager, energy_page.manager.pools()[0], 6, None)
+    pool_dialog.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    pool_dialog.show()
+    _settle(app)
+    pool_dialog.grab().save(str(OUTPUT_DIR / "energy-pool-dialog.png"))
+    print(f"已渲染 energy-pool-dialog → {OUTPUT_DIR / 'energy-pool-dialog.png'}")
 
     # 快速记录（Ctrl+N）：两段式，各抓一张
     from app.widgets.quick_capture import QuickCaptureDialog
@@ -253,7 +265,7 @@ def main() -> int:
     _settle(app)
     for key in (
         "overview", "ai", "heatmaps", "processes", "activity",
-        "mindmap", "diary", "data", "settings",
+        "energy", "mindmap", "diary", "data", "settings",
     ):
         window.set_page(key)
         _settle(app)
