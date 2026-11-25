@@ -55,6 +55,7 @@ def build_demo_service() -> tuple[Database, LifeManagerService]:
     paths.BACKUP_DIR = tmp / "backups"
     paths.EXPORT_DIR = tmp / "exports"
     paths.DIARY_PATH = tmp / "diary.md"
+    paths.NOTES_DIR = tmp / "notes"
     _ = saved  # 预览进程结束后自动清理，无需还原（独立进程）
     db = Database(tmp / "preview.sqlite3")
     db.initialize()
@@ -124,6 +125,22 @@ def build_demo_service() -> tuple[Database, LifeManagerService]:
     diary_store.write_day(
         (today - timedelta(days=2)).isoformat(), "补写的：前两天整理了一下计划。"
     )
+
+    # 演示笔记：两个文件夹 + 三篇笔记，其中一篇带常见 Markdown 语法
+    from app import notes as notes_store
+
+    notes_store.create_folder("", "工作")
+    notes_store.create_folder("", "学习")
+    notes_store.create_note("工作", "周报")
+    notes_store.write_note(
+        "工作/周报.md",
+        "# 本周周报\n\n## 做完的\n\n- 能量分配逻辑改成从空余扣\n- 笔记页面上线\n\n"
+        "> 一次只推进一件事。\n\n下周计划：把 `Ctrl+N` 的匹配再调一调。",
+    )
+    notes_store.create_note("学习", "英语单词")
+    notes_store.write_note("学习/英语单词.md", "# 英语单词\n\n**serendipity** 意外发现的美好事物")
+    notes_store.create_note("", "随想")
+    notes_store.write_note("随想.md", "# 随想\n\n随便写写，不用排版。")
     return db, service
 
 
@@ -153,6 +170,7 @@ def main() -> int:
         ("heatmaps", 1560, 1180),
         ("activity", 1560, 980),
         ("energy", 1560, 980),
+        ("notes", 1560, 980),
         ("diary", 1560, 980),
         ("data", 1560, 980),
         ("settings", 1560, 980),
@@ -160,6 +178,8 @@ def main() -> int:
     for key, width, height in shots:
         window.resize(width, height)
         window.set_page(key)
+        if key == "notes":
+            _open_demo_note(window)
         _settle(app)
         target = OUTPUT_DIR / f"{key}.png"
         window.grab().save(str(target))
@@ -265,9 +285,11 @@ def main() -> int:
     _settle(app)
     for key in (
         "overview", "ai", "heatmaps", "processes", "activity",
-        "energy", "mindmap", "diary", "data", "settings",
+        "energy", "notes", "mindmap", "diary", "data", "settings",
     ):
         window.set_page(key)
+        if key == "notes":
+            _open_demo_note(window)
         _settle(app)
         target = OUTPUT_DIR / f"dark-{key}.png"
         window.grab().save(str(target))
@@ -276,6 +298,14 @@ def main() -> int:
 
     db.close()
     return 0
+
+
+def _open_demo_note(window: MainWindow) -> None:
+    """笔记页截图：展开文件夹并选中「工作/周报.md」。"""
+    page = window.pages["notes"]
+    for i in range(page.tree.topLevelItemCount()):
+        page.tree.topLevelItem(i).setExpanded(True)
+    page._select_rel("工作/周报.md")
 
 
 def _settle(app: QApplication, seconds: float = 0.6) -> None:

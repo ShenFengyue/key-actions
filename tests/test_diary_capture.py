@@ -70,10 +70,12 @@ class DiaryCaptureDialogTest(unittest.TestCase):
             "BACKUP_DIR": paths.BACKUP_DIR,
             "EXPORT_DIR": paths.EXPORT_DIR,
             "DIARY_PATH": paths.DIARY_PATH,
+            "NOTES_DIR": paths.NOTES_DIR,
         }
         paths.BACKUP_DIR = self.tmp / "backups"
         paths.EXPORT_DIR = self.tmp / "exports"
         paths.DIARY_PATH = self.tmp / "diary.md"
+        paths.NOTES_DIR = self.tmp / "notes"
         self.db = Database(self.tmp / "ui.sqlite3")
         self.db.initialize()
         self.service = LifeManagerService(self.db)

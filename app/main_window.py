@@ -28,6 +28,7 @@ from .pages.diary import DiaryPage
 from .pages.energy import EnergyPage
 from .pages.heatmaps import HeatmapsPage
 from .pages.mindmap import MindMapPage
+from .pages.notes import NotesPage
 from .pages.overview import OverviewPage
 from .pages.processes import ProcessesPage
 from .pages.settings import SettingsPage
@@ -46,6 +47,7 @@ PAGE_TITLES = {
     "heatmaps": "热力图",
     "activity": "活动记录",
     "energy": "能量分配",
+    "notes": "笔记",
     "diary": "日记",
     "data": "数据",
     "settings": "设置",
@@ -106,6 +108,7 @@ class MainWindow(QMainWindow):
             "heatmaps": HeatmapsPage(service),
             "activity": ActivityPage(service),
             "energy": EnergyPage(service),
+            "notes": NotesPage(),
             "diary": DiaryPage(),
             "data": DataPage(service, config=config),
             "settings": SettingsPage(config),
@@ -370,6 +373,9 @@ class MainWindow(QMainWindow):
         diary_page = self.pages.get("diary")
         if diary_page is not None and hasattr(diary_page, "flush"):
             diary_page.flush()
+        notes_page = self.pages.get("notes")
+        if notes_page is not None and hasattr(notes_page, "flush"):
+            notes_page.flush()
         self.config.set("theme", name)
         self.config.save()
         self.restart_requested = True
